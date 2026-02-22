@@ -1,0 +1,53 @@
+# Root-level .gitignore for SmartSikchya FYP project
+
+# ─── Python / Backend ────────────────────────────────
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# ─── Node / Frontend ─────────────────────────────────
+node_modules/
+.next/
+out/
+.vercel
+
+# Build outputs
+/build
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── IDE / OS ─────────────────────────────────────────
+.DS_Store
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# ─── Old / Unused Folders ─────────────────────────────
+# "not this frontend" directory (legacy, to be deleted)
+not this frontend/
