@@ -1,0 +1,30 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.database import settings
+from app.routers import subjects, sessions, auth, admin
+
+app = FastAPI(
+    title="SmartSikshya API",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173"],
+    allow_credentials=True,      # Required for cookies
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(subjects.router)
+app.include_router(sessions.router)
+app.include_router(admin.router)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "SmartSikshya API v2"}
