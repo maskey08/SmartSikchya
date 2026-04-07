@@ -10,8 +10,8 @@ interface SidebarProps {
 const studentLinks = [
   { to: "/dashboard", icon: "dashboard", label: "Dashboard" },
   { to: "/subjects", icon: "menu_book", label: "Subjects" },
-  { to: "/practice", icon: "quiz", label: "Practice" },
-  { to: "/progress", icon: "trending_up", label: "Progress" },
+  { to: "/exam", icon: "assignment", label: "Test Yourself" },
+  { to: "/progress", icon: "monitoring", label: "Progress" },
   { to: "/recommendations", icon: "lightbulb", label: "For You" },
   { to: "/settings", icon: "settings", label: "Settings" },
 ];

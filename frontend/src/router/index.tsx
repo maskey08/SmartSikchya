@@ -80,8 +80,11 @@ export const router = createBrowserRouter([
           { path: "/subjects", element: S(SubjectsPage) },
           { path: "/subjects/:subjectId", element: S(SubjectDetailPage) },
           { path: "/practice", element: S(PracticePage) },
+          { path: "/exam", element: S(ExamPage) },
+
           { path: "/quiz/:chapterId", element: S(QuizPage) },
           { path: "/quiz/:chapterId/results", element: S(ResultsPage) },
+
           { path: "/progress", element: S(ProgressPage) },
           { path: "/recommendations", element: S(RecommendationsPage) },
           { path: "/settings", element: S(SettingsPage) },
