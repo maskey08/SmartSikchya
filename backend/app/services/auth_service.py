@@ -1,10 +1,9 @@
 """
-Auth service — JWT creation/verification, password hashing, cookie helpers.
+Auth service — JWT, password hashing, cookie helpers, auth dependencies.
 """
-import os
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
@@ -13,12 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db, settings
 from app.models.user import User
 
-# ── Crypto setup ─────────────────────────────────────────────────
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# ── Crypto ────────────────────────────────────────────────────────
+# Use sha256_crypt instead of bcrypt to avoid passlib/bcrypt>=4 incompatibility
+pwd_ctx = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
-ACCESS_TOKEN_EXPIRE_MINUTES  = 60 * 24       # 24 hours
-REFRESH_TOKEN_EXPIRE_DAYS    = 7
-ALGORITHM                    = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24   # 24 hours
+REFRESH_TOKEN_EXPIRE_DAYS   = 7
+ALGORITHM                   = "HS256"
 
 
 # ── Password helpers ─────────────────────────────────────────────
@@ -55,11 +55,7 @@ def decode_token(token: str) -> dict:
 
 
 # ── Cookie helpers ───────────────────────────────────────────────
-COOKIE_OPTS = dict(
-    httponly=True,
-    secure=False,       # Set True in production (requires HTTPS)
-    samesite="lax",
-)
+COOKIE_OPTS = dict(httponly=True, secure=False, samesite="lax")
 
 
 def set_auth_cookies(response, access_token: str, refresh_token: str):
@@ -76,18 +72,17 @@ def set_auth_cookies(response, access_token: str, refresh_token: str):
 
 
 def clear_auth_cookies(response):
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    response.delete_cookie("access_token",  samesite="lax")
+    response.delete_cookie("refresh_token", samesite="lax")
 
 
-# ── Auth dependency — use in protected routes ────────────────────
+# ── Auth dependencies ────────────────────────────────────────────
 async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     token = request.cookies.get("access_token")
     if not token:
-        # Also check Authorization header (for testing in Swagger)
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]

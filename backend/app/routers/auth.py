@@ -144,7 +144,7 @@ async def seed_admin(db: AsyncSession = Depends(get_db)):
     """
     Creates the admin account if none exists.
     Hit this endpoint ONCE after first deploy.
-    Default: admin@smartsikshya.com / SmartAdmin123!
+    Default: admin@smartsikchya.com / Admin@123
     Change password immediately after first login.
     """
     result = await db.execute(select(User).where(User.role == "admin"))
@@ -153,8 +153,8 @@ async def seed_admin(db: AsyncSession = Depends(get_db)):
 
     admin = User(
         full_name="Admin",
-        email="admin@smartsikshya.com",
-        password_hash=hash_password("SmartAdmin123!"),
+        email="admin@smartsikchya.com",
+        password_hash=hash_password("Admin@123"),
         role="admin",
     )
     db.add(admin)
@@ -163,8 +163,8 @@ async def seed_admin(db: AsyncSession = Depends(get_db)):
     await db.commit()
     return {
         "message": "Admin created",
-        "email": "admin@smartsikshya.com",
-        "password": "SmartAdmin123!",
+        "email": "admin@smartsikchya.com",
+        "password": "Admin@123",
         "warning": "Change this password immediately!",
     }
 

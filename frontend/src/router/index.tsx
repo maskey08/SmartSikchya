@@ -1,15 +1,15 @@
 import { createBrowserRouter } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-
+import { AdminRoute } from "@/components/AdminRoute";
 import { Layout } from "@/components/Layout";
 
-// Public pages
+// ── Public ──────────────────────────────────────────────────────
 const LandingPage = lazy(() => import("@/features/auth/pages/LandingPage"));
 const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage"));
 const SignupPage = lazy(() => import("@/features/auth/pages/SignupPage"));
 
-// Protected pages
+// ── Protected (student) ─────────────────────────────────────────
 const DashboardPage = lazy(
   () => import("@/features/dashboard/pages/DashboardPage"),
 );
@@ -19,8 +19,8 @@ const SubjectsPage = lazy(
 const SubjectDetailPage = lazy(
   () => import("@/features/subjects/pages/SubjectDetailPage"),
 );
-const QuizPage = lazy(() => import("@/features/quiz/pages/QuizPage"));
 const PracticePage = lazy(() => import("@/features/quiz/pages/PracticePage"));
+const QuizPage = lazy(() => import("@/features/quiz/pages/QuizPage"));
 const ResultsPage = lazy(() => import("@/features/quiz/pages/ResultsPage"));
 const ProgressPage = lazy(
   () => import("@/features/progress/pages/ProgressPage"),
@@ -32,6 +32,11 @@ const SettingsPage = lazy(
   () => import("@/features/settings/pages/SettingsPage"),
 );
 const ExamPage = lazy(() => import("@/features/exam/pages/ExamPage"));
+
+// ── Admin ────────────────────────────────────────────────────────
+const AdminDashboard = lazy(
+  () => import("@/features/admin/pages/AdminDashboard"),
+);
 
 const Loader = () => (
   <div className="flex h-screen items-center justify-center bg-background">
@@ -48,24 +53,34 @@ const S = (C: React.ComponentType) => (
 );
 
 export const router = createBrowserRouter([
-  // ── Public ────────────────────────────────────────────
+  // ── Public ─────────────────────────────────────────────────────
   { path: "/", element: S(LandingPage) },
   { path: "/login", element: S(LoginPage) },
   { path: "/signup", element: S(SignupPage) },
 
-  // ── Protected + Layout shell ──────────────────────────
+  // ── Admin (must come before protected so AdminRoute check applies) ─
+  {
+    element: <AdminRoute />,
+    children: [
+      {
+        element: <Layout />,
+        children: [{ path: "/admin", element: S(AdminDashboard) }],
+      },
+    ],
+  },
+
+  // ── Protected student routes ────────────────────────────────────
   {
     element: <ProtectedRoute />,
     children: [
       {
-        element: <Layout /> /* Sidebar + Header wrapper */,
-
+        element: <Layout />,
         children: [
           { path: "/dashboard", element: S(DashboardPage) },
           { path: "/subjects", element: S(SubjectsPage) },
           { path: "/subjects/:subjectId", element: S(SubjectDetailPage) },
-          { path: "/quiz/:chapterId", element: S(QuizPage) },
           { path: "/practice", element: S(PracticePage) },
+          { path: "/quiz/:chapterId", element: S(QuizPage) },
           { path: "/quiz/:chapterId/results", element: S(ResultsPage) },
           { path: "/progress", element: S(ProgressPage) },
           { path: "/recommendations", element: S(RecommendationsPage) },
@@ -75,7 +90,7 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // ── Exam has its own fullscreen layout (no sidebar) ───
+  // ── Exam — fullscreen, no sidebar ──────────────────────────────
   {
     element: <ProtectedRoute />,
     children: [{ path: "/exam/:examId", element: S(ExamPage) }],

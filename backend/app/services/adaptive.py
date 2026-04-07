@@ -1,18 +1,14 @@
 """
 Adaptive question selection engine.
-
-Current implementation: rule-based on user's historical accuracy.
-Future: swap get_target_difficulty() to call DistilBERT classifier
-that reads question text and returns predicted difficulty.
+Rule-based difficulty selection — DistilBERT plugs in here later.
 """
-
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.models.session import UserProgress
 from app.models.question import Question, QuestionMetadata
 
-
-# XP awarded per difficulty
 XP_MAP = {"easy": 10, "medium": 20, "hard": 30}
 SESSION_COMPLETION_BONUS = 50
 XP_PER_LEVEL = 500
@@ -24,11 +20,11 @@ async def get_target_difficulty(
     chapter_id: int,
 ) -> str:
     """
-    Rule-based difficulty selection:
-    - No history       → medium (balanced start)
-    - accuracy < 40%   → easy   (struggling)
-    - accuracy 40–70%  → medium (on track)
-    - accuracy > 70%   → hard   (push further)
+    Rule-based difficulty selection based on historical accuracy:
+      - No history       → medium
+      - accuracy < 40%   → easy
+      - accuracy 40-70%  → medium
+      - accuracy > 70%   → hard
     """
     result = await db.execute(
         select(UserProgress).where(
@@ -42,7 +38,6 @@ async def get_target_difficulty(
         return "medium"
 
     accuracy = progress.correct_answers / progress.total_attempts
-
     if accuracy < 0.40:
         return "easy"
     elif accuracy <= 0.70:
@@ -58,16 +53,12 @@ async def get_questions_for_session(
     limit: int = 10,
 ) -> list[Question]:
     """
-    Fetch questions for a session.
-    Strategy:
-    - 60% target difficulty
-    - 20% one level below (consolidation)
-    - 20% one level above (stretch)
-
-    Falls back to any available questions if counts are low.
+    Fetch questions with metadata eagerly loaded (avoids MissingGreenlet error).
+    Strategy: 60% target difficulty, 20% below, 20% above.
+    Falls back to any chapter question if counts are insufficient.
     """
     difficulty_order = ["easy", "medium", "hard"]
-    idx = difficulty_order.index(target_difficulty)
+    idx   = difficulty_order.index(target_difficulty)
     below = difficulty_order[max(0, idx - 1)]
     above = difficulty_order[min(2, idx + 1)]
 
@@ -82,6 +73,8 @@ async def get_questions_for_session(
                 Question.chapter_id == chapter_id,
                 QuestionMetadata.difficulty_level == difficulty,
             )
+            # ← CRITICAL: eager-load metadata so async sessions don't lazy-load later
+            .options(selectinload(Question.metadata_))
             .order_by(func.random())
             .limit(count)
         )
@@ -90,21 +83,26 @@ async def get_questions_for_session(
 
     questions = await fetch(target_difficulty, target_count)
 
-    # Fill with easier/harder if not enough at target difficulty
     if len(questions) < limit:
-        questions += await fetch(below, other_count)
-    if len(questions) < limit:
-        questions += await fetch(above, other_count)
+        extra = await fetch(below, other_count)
+        seen  = {q.question_id for q in questions}
+        questions += [q for q in extra if q.question_id not in seen]
 
-    # If still short, grab any from chapter (no difficulty filter)
+    if len(questions) < limit:
+        extra = await fetch(above, other_count)
+        seen  = {q.question_id for q in questions}
+        questions += [q for q in extra if q.question_id not in seen]
+
+    # Final fallback: any question in this chapter
     if len(questions) < limit:
         ids_seen = [q.question_id for q in questions]
         stmt = (
             select(Question)
             .where(
                 Question.chapter_id == chapter_id,
-                ~Question.question_id.in_(ids_seen),
+                Question.question_id.not_in(ids_seen) if ids_seen else True,
             )
+            .options(selectinload(Question.metadata_))  # ← eager load here too
             .order_by(func.random())
             .limit(limit - len(questions))
         )
@@ -125,18 +123,19 @@ def calculate_level(total_xp: int) -> int:
 
 
 def build_recommendation(accuracy: float, target_difficulty: str) -> str:
+    pct = int(accuracy * 100)
     if accuracy >= 0.80:
         return (
-            f"Great work! You're mastering this chapter. "
-            f"Try a harder chapter next, or tackle more {target_difficulty} questions to solidify."
+            f"Excellent! {pct}% accuracy. You're mastering this chapter. "
+            f"Try harder chapters or subjects to keep growing."
         )
     elif accuracy >= 0.50:
         return (
-            f"Good effort! Accuracy at {int(accuracy*100)}%. "
-            f"Review the questions you got wrong and try again to push past 80%."
+            f"Good effort! {pct}% accuracy. Review the questions you got wrong "
+            f"and try again — aim for 80%+."
         )
     else:
         return (
-            f"This chapter needs more practice. Accuracy at {int(accuracy*100)}%. "
-            f"Focus on the explanations for wrong answers — you'll get there."
+            f"Keep practising! {pct}% accuracy. Focus on understanding the explanations "
+            f"for wrong answers. You'll improve with repetition."
         )
