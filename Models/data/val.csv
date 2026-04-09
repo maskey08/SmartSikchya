@@ -1,37 +1,68 @@
 question_text,label
-Identify whether the sentence is active or passive voice: 'The book was read by him.',medium
-Earth/Europa radius problem.,medium
-What does a loop do?,medium
-Greek art passage.,easy
-What is the difference between a list and a tuple in Python?,medium
-Artificial language argument.,hard
-"In Python, print(""Hello"") outputs ___.",easy
-Simplify: 3a + 2a,medium
-Calculate the speed of an object that travels 120m in 4 seconds.,medium
-Find cost of an orange from equations.,easy
-Which of the following could be a graph of the function y = 1/x?,medium
-How many degrees are in a right angle?,easy
-Describe the ACID properties of a database transaction.,hard
-Anole habitat experiment.,medium
-How many sides does a triangle have?,easy
-"Cost of bags, caps, and gloves system problem.",medium
-Cancer treatment discussion.,medium
-Probability of rolling a 2 on a 14-sided die.,medium
 Spectroscopic fingerprint passage: fill in the blank.,easy
-Define velocity.,easy
-What is 10 divided by 2?,easy
-What is the symbol for Gold?,medium
-How many sides does a pentagon have?,easy
-Area of a rectangle with length 8 and width 5?,medium
-Explain why quicksort has O(n²) worst case but is still preferred in practice.,hard
-Discounted jacket original price.,easy
-pH of a neutral solution is ___.,easy
-Triangle angle problem.,easy
-NaCl is the chemical name for common ___.,easy
-"An antonym for ""ancient"" is?",medium
-What does CPU stand for?,easy
+Calculate the circumference of a circle with diameter 14 cm.,medium
+What is the difference between syntax error and runtime error?,medium
+What is a router used for?,easy
+Explain what a variable is in algebra.,medium
+What is the monthly rent for an apartment based on given conditions?,medium
+Explain the four pillars of OOP and how they solve software engineering problems.,hard
+Explain the difference between synchronous and asynchronous programming with code.,hard
+What is the largest continent?,easy
+Explain how consensus algorithms like Raft or Paxos maintain distributed consistency.,hard
+Derive the Henderson-Hasselbalch equation for buffer solutions.,hard
+What is the difference between an acid and a base?,medium
+Find cost of an orange from equations.,easy
+What colour is the sky?,easy
+How many sides does a hexagon have?,easy
+What is an integer?,easy
+What is the difference between prokaryotic and eukaryotic cells?,medium
+Describe what a function does in programming.,medium
+What is 3 × 3?,easy
+What is the difference between a simile and a metaphor?,medium
+Name the hardest natural substance.,easy
+Derive the formula for compound interest from first principles.,hard
+"If a circle has diameter 8 inches, what is the circumference?",medium
+What is the plural of mouse?,easy
+What is the difference between hardware and software?,medium
+What does a modem do?,medium
+What is Newton's First Law of Motion?,medium
+What is a photon?,easy
+Calculate the area of a triangle with base 10 and height 6.,medium
+A function f(x) = 2x² + 7. What is the value of 2f(x)?,hard
+Remainder and divisibility statements problem.,hard
+Explain what an array is in programming.,medium
+Soursop health benefits passage: fill in the blank.,easy
+What is a transistor?,easy
+Prove that the number of nodes in a complete binary tree of height h is 2^(h+1) - 1.,hard
+Find the HCF of 24 and 36.,medium
+Is x divisible by 39?,hard
+What colour does red and blue make?,easy
+Which planet is closest to the Sun?,easy
+Explain what recursion is with a simple example.,medium
+Explain the concept of closure in functional programming with detailed examples.,hard
+Which of the following could be a graph of the function y = 1/x?,medium
+Mean score problem with 5 tests.,easy
+What is the difference between local and global variables?,medium
+Three-digit number divisibility problem.,hard
+"A crane raises one end of a 3,300 lb steel beam. If the crane supports 30% of the beam’s weight, how many pounds does it support?",easy
+Derive the equation for the period of a simple pendulum.,hard
 What is a noun?,easy
-Find the area of a circle with radius 5 cm.,medium
-Factor: x² - 9,hard
-Choose the correct verb form: She ___ to school every day.,medium
-Walking rates meeting problem.,medium
+Describe the algorithmic approach to solving the travelling salesman problem.,hard
+Discuss the thermodynamic implications of entropy in a closed system.,hard
+Medication dosage decrease problem.,easy
+Which letter represents the vertex?,easy
+What is NaCl commonly known as?,easy
+What is 7 × 8?,easy
+Define an atom.,easy
+What is the speed-time graph area equal to?,medium
+Describe and compare Dijkstra's and Bellman-Ford shortest path algorithms.,hard
+What does HTML stand for?,easy
+Critically evaluate the CAP theorem and its implications for distributed systems.,hard
+Define evaporation.,easy
+How many sides does a pentagon have?,easy
+Tickets and vouchers distribution problem.,easy
+Grocery store pricing argument.,easy
+Identify whether the sentence is active or passive voice: The book was read by him.,medium
+How many bytes are in a kilobyte?,easy
+Define a variable in programming.,easy
+Artificial language argument.,hard

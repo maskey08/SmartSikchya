@@ -1,144 +1,265 @@
 question_text,label
-Average of numbers problem.,easy
-What is the capital of Nepal?,easy
-Speed = Distance / ___.,easy
-Which data type stores True or False?,easy
-The hypotenuse is the longest side in a ___ triangle.,hard
-What is the main idea of a paragraph usually found in?,easy
-What is the chemical symbol for Gold?,easy
+Prove De Morgan's laws in Boolean algebra.,hard
+Explain the concept of pH scale.,medium
+Explain what network bandwidth means.,medium
+Calculate the simple interest on Rs.500 at 8% per year for 3 years.,medium
+Describe the Diffie-Hellman key exchange protocol and explain its security basis.,hard
 "If y + 40x + 2 = 0, what is xy?",easy
-How many bytes are in a kilobyte?,easy
-What happens to momentum when a net force acts on an object?,hard
-Define an atom.,easy
-"Identify the tense: ""They were playing cricket.""",medium
-Circle area ratio problem.,easy
-"If y = 3x and x = 4, what is y?",easy
-What is the measure of the angle in the figure?,medium
-Which letter represents the vertex?,easy
-"If N is a 3-digit number where each digit is a factor of N, what is N?",hard
-Percent decrease then increase problem.,medium
-Industrial revolution passage.,medium
-What is the boiling point of water in Celsius?,easy
-How does the OSI model facilitate network communication? Discuss each layer.,hard
-Global warming debate question.,hard
-What type of bond is formed by sharing electrons?,medium
-Soursop health benefits passage: fill in the blank.,easy
+What is the chemical symbol for Gold?,easy
+Name the currency of Japan.,easy
+Bulb life inequality problem.,hard
+Analyse and explain the trade-offs in the CAP theorem for distributed databases.,hard
+What is a mammal?,easy
+Define gravity.,easy
+"A blouse normally sells for $138, but is on sale for 25% off. What is the cost of the blouse?",medium
+Explain the difference between series and parallel circuits.,medium
+Cancer treatment discussion.,medium
+Bus trip fare range problem.,hard
 Apples and oranges combinations problem.,hard
+Who invented the telephone?,easy
+Prove that P ≠ NP is still an open problem and explain its significance.,hard
 Wheel revolution rate problem.,easy
+What is the difference between a virus and bacteria?,medium
+Critically evaluate the use of DistilBERT for classification compared to fine-tuning GPT.,hard
+What is 25% of 100?,easy
+What is a conditional statement?,medium
+Describe the function of a CPU.,medium
+What is an adjective?,easy
+What is a prime number?,easy
+Average of numbers problem.,easy
+How many sides does a triangle have?,easy
+How many continents are on Earth?,easy
+"Each year, an investment increases by 0.49%. Which function models this growth?",medium
+Solve: 3x + 2y = 12 when y = 3,medium
+Derive the work-energy theorem from Newton's second law.,hard
+Analyse the role of the central limit theorem in statistical inference.,hard
+What is the difference between stack and queue data structures?,medium
+Prove by induction that the sum of first n natural numbers is n(n+1)/2.,hard
+Explain how HTTPS differs from HTTP and describe the role of TLS certificates.,hard
+Find the value of y if 2y - 4 = 10.,medium
 Electric charge experiment.,medium
 Explain Newton's Second Law of Motion with an example.,medium
-Car skid speed estimation problem.,medium
-Three-digit number divisibility problem.,hard
-What is the SI unit of force?,easy
-Which planet is closest to the Sun?,easy
-Fishing story passage: what best summarizes the passage?,easy
-Prove by induction that the sum of first n natural numbers is n(n+1)/2.,hard
-What does IP stand for?,easy
-Find the value of xy given two equations.,easy
-Solve for x: 3x + 7 = 22,medium
-Explain what an IP address is.,medium
-Mistake ratio test problem.,medium
-What is the value of x if 2x = 10?,easy
-Which expression is equivalent to (a+b)(a−b)?,easy
-Which law states F = ma?,medium
-Angle R and T problem in radians.,medium
-Is x divisible by 39?,hard
-"Given a binary tree, write an algorithm to find the height of the tree.",hard
-What is 7 × 8?,easy
-Mean of data set.,easy
-What is the role of the nucleus in a cell?,medium
-Which symbol is used for comments in Python?,easy
-Wishcycling passage: fill in the blank.,easy
-The ___ statement is used to make decisions in code.,easy
-Convert 0.75 to a fraction in its simplest form.,medium
-What is the monthly rent for an apartment based on given conditions?,medium
-Identify the subject and predicate: The cat sat on the mat.,medium
-Derive the equation of motion v² = u² + 2as from first principles.,hard
-"A crane raises one end of a 3,300 lb steel beam. If the crane supports 30% of the beam’s weight, how many pounds does it support?",easy
-Bulb life inequality problem.,hard
-Solve for x: x/4 = 3,medium
-Coin distribution problem.,easy
-Drug study: did more patients improve than experience side effects?,hard
-Tickets and vouchers distribution problem.,easy
-"The word ""quickly"" is an ___.",easy
-What is the difference between hardware and software?,medium
-"What are the key differences between supervised, unsupervised, and reinforcement learning?",hard
-A box of laundry detergent contains 16.5 oz of product. What is the maximum number of loads that can be washed if each load requires 34 oz?,medium
-Derive the quadratic formula from ax² + bx + c = 0.,hard
-Name the gas that plants absorb during photosynthesis.,easy
-Termite study passage.,medium
-Factorise completely: 2x³ + 3x² - 11x - 6,hard
-The ceremony of driving the golden spike passage question.,medium
-"What does ""benevolent"" mean?",medium
-The SI unit of energy is ___.,easy
-Medication dosage decrease problem.,easy
-Solve 3/x = 5/7.,easy
-Name a primary colour.,easy
-Calculate the perimeter of a rectangle with length 12 and width 8.,medium
-Explain the concept of polymorphism in OOP with practical examples.,hard
-What is the difference between mitosis and meiosis?,medium
-Which of these is a noun?,easy
-Farm machinery argument question.,medium
-Venn diagram farm problem.,medium
-What is the symbol for water?,easy
-Bus trip fare range problem.,hard
-What is the degree of the polynomial 4x³ + 2x - 1?,hard
-What number is 15 percent of x?,easy
-Grocery store pricing argument.,easy
-What is a variable?,medium
-Fluid energy passage.,hard
-Remainder and divisibility statements problem.,hard
-Mean score problem with 5 tests.,easy
-Critically evaluate the impact of adaptive learning on student performance outcomes.,hard
-Discuss the limitations of the Bohr model of the atom.,hard
-A tire rotates at 500 rpm when the car travels at 50 kph. What is the circumference of the tire?,medium
-Overtime pay calculation.,medium
-"For exponential function f, if f(1)=k, which form shows k clearly?",hard
-"If a circle has diameter 8 inches, what is the circumference?",medium
-Analyse the time complexity of merge sort and justify using recurrence relations.,hard
-Who invented the telephone?,easy
-Chemical formula of water?,easy
-A function f(x) = 2x² + 7. What is the value of 2f(x)?,hard
-Find the value of y if 2y - 4 = 10.,medium
-The sum of angles in a triangle is ___ degrees.,easy
-Write a for loop that prints numbers 1 to 5 in Python.,medium
-Nutrition intake relation problem.,medium
-Prove that the sum of angles in any triangle is 180 degrees.,hard
-"A synonym for ""happy"" is?",easy
-What does the keyword 'return' do in a function?,medium
-Convert 30 mph to feet per second.,easy
-How many layers does the OSI model have?,medium
-Which device connects different networks together?,medium
-Sunspots passage: fill in the blank.,easy
-HTTP stands for HyperText Transfer ___.,easy
-Explain how a neural network learns using backpropagation.,hard
-How does a router differ from a switch?,medium
-What is the SI unit of time?,easy
-Food grams per tank question.,medium
-DNS converts domain names to ___.,hard
-What is the formula for the area of a triangle?,medium
-"A blouse normally sells for $138, but is on sale for 25% off. What is the cost of the blouse?",medium
-Buckets X and Y problem involving fractions of capacity.,medium
-What is the next-highest prime number after 67?,easy
-A circle has how many degrees?,easy
-Inference means drawing a conclusion based on ___ and reasoning.,easy
-Explain how HTTPS differs from HTTP and describe the role of TLS certificates.,hard
-A ___ is a word that describes a verb.,easy
-Calculate the compound interest on Rs. 1000 at 10% for 2 years.,medium
-The solution to 5x - 10 = 0 is x = ___.,easy
-What is the approximate value of gravitational acceleration on Earth?,medium
-What is 5 + 3?,easy
-Discuss the thermodynamic implications of entropy in a closed system.,hard
-What is the pH of an acid solution?,medium
-Which type of wave requires a medium to travel?,medium
-Evaluate: ∫(3x² + 2x - 1)dx from 0 to 2,hard
-What punctuation ends a question sentence?,medium
-"Each year, an investment increases by 0.49%. Which function models this growth?",medium
-Perimeter of a square with side 6?,medium
 What type of animal is a shark?,easy
-Explain what recursion is with a simple example.,medium
+Describe what a sorting algorithm does.,medium
+What is the next-highest prime number after 67?,easy
+Explain what an if-else statement does.,medium
+Industrial revolution passage.,medium
+What is a loop in programming?,easy
+Solve the inequality: 2x + 3 > 11,medium
+What number is 15 percent of x?,easy
+Name the largest ocean on Earth.,easy
+How many bones are in the adult human body?,easy
+Fishing story passage: what best summarizes the passage?,easy
+What is the opposite of addition?,easy
+How many centimetres are in a metre?,easy
+Define velocity.,easy
+"For exponential function f, if f(1)=k, which form shows k clearly?",hard
+Fluid energy passage.,hard
+Name the closest star to Earth.,easy
+What gas do plants absorb during photosynthesis?,easy
+A box of laundry detergent contains 16.5 oz of product. What is the maximum number of loads that can be washed if each load requires 34 oz?,medium
+What does WWW stand for?,easy
+What is the opposite of north?,easy
+What is a class in object-oriented programming?,medium
+Drug study: did more patients improve than experience side effects?,hard
+Explain how a 3NF database schema eliminates transitive dependencies.,hard
+Solve for x: x² - x - 6 = 0,medium
+Describe what happens in cellular respiration.,medium
+Describe the function of white blood cells.,medium
+What is the value of pi approximately?,easy
+Find the value of xy given two equations.,easy
+Explain what subroutines are used for.,medium
+What is the capital city of France?,easy
+Find the gradient of the line y = 3x + 5.,medium
+Global warming debate question.,hard
+Describe how photosynthesis produces oxygen.,medium
 Explain the working of a Turing machine and its significance in computability theory.,hard
-Atoms of the same element with different neutrons are called?,hard
+Define latitude.,easy
+Convert 0.75 to a fraction in its simplest form.,medium
+Explain the role of the sigmoid activation function and its gradient vanishing problem.,hard
+Analyse and compare the space-time complexity of BFS and DFS graph traversal.,hard
+Calculate the perimeter of a rectangle with length 12 and width 8.,medium
+Triangle angle problem.,easy
+Car skid speed estimation problem.,medium
+Calculate the volume of a cube with side 4 cm.,medium
+What is 10 divided by 2?,easy
+Name the smallest planet in our solar system.,easy
+Define osmosis.,easy
+Explain how public key cryptography works and why RSA is secure.,hard
+What is the difference between kinetic and potential energy?,medium
+Name one type of renewable energy.,easy
+What is the binary equivalent of the decimal number 2?,easy
+What does GUI stand for?,easy
+What is the Pythagorean theorem?,medium
+What is 100 - 37?,easy
+Critically discuss the ethical implications of AI decision-making in healthcare.,hard
+What is the output of print(2+3) in Python?,easy
+How many vowels are in the English alphabet?,easy
+What is the chemical symbol for Iron?,easy
+Solve: log₂(8),medium
+What is the symbol for the element Carbon?,easy
+What is Ohm's Law and write its formula?,medium
+Food grams per tank question.,medium
+Name the author who wrote Romeo and Juliet.,easy
+Solve: √(x+1) = 4,medium
+What is the process of a caterpillar becoming a butterfly called?,easy
+Define an algorithm.,easy
+What is data encapsulation in OOP?,medium
+"What are the key differences between supervised, unsupervised, and reinforcement learning?",hard
+Define a right angle.,easy
+Solve for a: a/3 + 2 = 5,medium
+What is the role of the nucleus in a cell?,medium
+Explain what an operating system does.,medium
+Explain what a variable scope means in programming.,medium
+Circle area ratio problem.,easy
+How many degrees are in a right angle?,easy
+"Explain the concept of Big-O notation and compare O(log n), O(n), O(n log n), O(n²).",hard
+Name the organ used for digestion.,easy
+What is the SI unit of time?,easy
+Explain the water cycle briefly.,medium
+Farm machinery argument question.,medium
+Solve 3/x = 5/7.,easy
+"Find the mode of: 3, 5, 3, 7, 5, 3",medium
+What does USB stand for?,easy
+What is the difference between input and output devices?,medium
+What is a binary search algorithm?,medium
+Name a type of input device for a computer.,easy
+Walking rates meeting problem.,medium
+Identify the subject in: The tall man quickly ran down the hill.,medium
+Angle R and T problem in radians.,medium
+What does RAM stand for?,easy
+Convert 30 mph to feet per second.,easy
+Prove that the sum of angles in any triangle is 180 degrees.,hard
+What does it mean to debug a program?,medium
+Termite study passage.,medium
+Prove that the time complexity of binary search is O(log n).,hard
+Describe the ACID properties of a database transaction with examples.,hard
+The ceremony of driving the golden spike passage question.,medium
+What is the difference between accuracy and precision?,medium
+What is the difference between weather and climate?,medium
+Earth/Europa radius problem.,medium
+What is the past tense of run?,easy
+Mean of data set.,easy
+Discuss the limitations of the Bohr model of the atom.,hard
+What is the square root of 9?,easy
 Compare and contrast object-oriented and functional programming paradigms.,hard
-Madagascar passage question.,hard
+What is the boiling point of water in Celsius?,easy
+Coin distribution problem.,easy
+How many days are in a week?,easy
+What is 15 + 9?,easy
+Venn diagram farm problem.,medium
+Explain the difference between while loop and for loop.,medium
+Anole habitat experiment.,medium
+How many zeros are in one million?,easy
+What is the speed of light approximately?,easy
+Analyse the security vulnerabilities in a SQL injection attack and prevention strategies.,hard
+"Given a binary tree, write an algorithm to find the height of the tree.",hard
+What is the capital of Nepal?,easy
+How does the OSI model facilitate network communication? Discuss each layer in detail.,hard
+Name the gas that makes up most of Earth's atmosphere.,easy
+Solve: 5x - 3 = 2x + 9,medium
+Explain how garbage collection works in Java and its tradeoffs.,hard
+Solve: 2^10,medium
+Derive the quadratic formula from ax² + bx + c = 0.,hard
+How many minutes are in an hour?,easy
+How many planets are in our solar system?,easy
+Explain what a database primary key is.,medium
+How many legs does a spider have?,easy
+What is the difference between RAM and ROM?,medium
+Explain how TCP ensures reliable data delivery over an unreliable network.,hard
+Explain how a switch statement differs from if-else.,medium
+What is a conjunction?,easy
+What does HTTPS provide that HTTP does not?,medium
+What is the symbol for Oxygen?,easy
+Calculate the speed of an object that travels 120m in 4 seconds.,medium
+What is the freezing point of water?,easy
+Find the area of a circle with radius 5 cm.,medium
+What is the difference between abstract class and interface?,medium
+What is 2 + 2?,easy
+Prove that √2 is irrational.,hard
+Solve: sin(30°),medium
+Describe the mathematics behind RSA encryption including key generation and decryption.,hard
+Name the planet with rings.,easy
+Overtime pay calculation.,medium
+Factorise completely: 2x³ + 3x² - 11x - 6,hard
+Describe the architecture of a transformer model and why it replaced RNNs.,hard
+Probability of rolling a 2 on a 14-sided die.,medium
+Explain what a bit is versus a byte.,medium
+Derive the equation of motion v² = u² + 2as from first principles.,hard
+What is a verb?,easy
+Solve: 3(x - 2) = 9,medium
+Explain the concept of a linked list.,medium
+What is the chemical symbol for water?,easy
+What is the difference between a list and a tuple in Python?,medium
+What is a byte?,easy
+Critically evaluate the limitations of the relational model and why NoSQL emerged.,hard
+Explain why quicksort has O(n²) worst case but is still preferred in practice.,hard
+Describe the role of an antivirus program.,medium
+Name the element with atomic number 1.,easy
+Derive the formula for the sum of a geometric series.,hard
+Nutrition intake relation problem.,medium
+"What is the mean of 4, 8, 12, 16?",medium
+Wishcycling passage: fill in the blank.,easy
+Derive the formula for kinetic energy from Newton's equations of motion.,hard
+What is the difference between GET and POST in HTTP?,medium
+Analyse how deadlock occurs in operating systems and describe the four necessary conditions.,hard
+What is the difference between compilation and interpretation?,medium
+Name the organ that pumps blood.,easy
+Name the first planet from the Sun.,easy
 Fish tank SGR experiment question.,hard
+Explain the time and space complexity of dynamic programming versus greedy algorithms.,hard
+Explain the halting problem and its implications for computer science.,hard
+Greek art passage.,easy
+What is the difference between mitosis and meiosis?,medium
+"What is the range of: 5, 12, 7, 3, 9?",medium
+What is the unit of electric current?,easy
+What is 9 squared?,easy
+Percent decrease then increase problem.,medium
+What is the difference between a hypothesis and a theory?,medium
+Sunspots passage: fill in the blank.,easy
+Convert the binary number 1010 to decimal.,medium
+What is a boolean data type?,medium
+A tire rotates at 500 rpm when the car travels at 50 kph. What is the circumference of the tire?,medium
+How does a router differ from a switch?,medium
+Solve for x: 2x² = 18,medium
+Solve: 2/3 × 9/4,medium
+Prove that there are infinitely many prime numbers.,hard
+Derive Maxwell's equations in integral form and explain each term.,hard
+What is the main function of the lungs?,easy
+Evaluate: ∫(3x² + 2x - 1)dx from 0 to 2,hard
+Discounted jacket original price.,easy
+Find the LCM of 12 and 18.,medium
+Describe the OSI model in one sentence per layer.,medium
+Explain how MapReduce works and give an example of its application.,hard
+Solve for x: 3x + 7 = 22,medium
+Calculate: 15% of 240,medium
+"Cost of bags, caps, and gloves system problem.",medium
+Mistake ratio test problem.,medium
+Prove the Pythagorean theorem using algebraic method.,hard
+Explain the difference between pass by value and pass by reference.,medium
+What happens to the speed of sound when temperature increases?,medium
+Buckets X and Y problem involving fractions of capacity.,medium
+What is 12 × 12?,easy
+"If N is a 3-digit number where each digit is a factor of N, what is N?",hard
+What is a synonym for big?,easy
+Which expression is equivalent to (a+b)(a−b)?,easy
+Define photosynthesis in one sentence.,easy
+Describe the difference between a compiler and interpreter.,medium
+What does CPU stand for?,easy
+What is the difference between light and sound waves?,medium
+What does an adverb modify?,easy
+Name a primary colour.,easy
+What is the difference between organic and inorganic compounds?,medium
+Explain what inheritance means in OOP.,medium
+Explain what a foreign key is in a relational database.,medium
+Analyse the time complexity of merge sort and justify using recurrence relations.,hard
+Explain what DNS does.,medium
+Explain how virtual memory works and the role of page tables.,hard
+Write a for loop that prints numbers 1 to 5 in Python.,medium
+Explain how a neural network learns using backpropagation with gradient descent.,hard
+What is the measure of the angle in the figure?,medium
+Explain the concept of polymorphism in OOP with practical code examples.,hard
+Madagascar passage question.,hard
+Name one type of data type in programming.,easy
+What is water made of?,easy
+Explain what an IP address is.,medium
