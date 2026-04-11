@@ -69,6 +69,11 @@ export function AIExplanationSidebar({
     setError(null);
     setExplanation(null);
 
+    if (!question || !sessionId) {
+      setError("Something went wrong. Try again.");
+      return;
+    }
+
     try {
       // Call the backend explanation endpoint directly with the correct answer
       const { data } = await api.post("/sessions/explain", {
@@ -179,15 +184,15 @@ export function AIExplanationSidebar({
           </div>
 
           {/* State: NOT answered yet */}
-          {!isAnswered && !showCorrect && (
+          {/* {!isAnswered && !showCorrect && (
             <div className="flex flex-col gap-4">
               <div className="rounded-xl border border-warning/20 bg-warning/5 p-4">
                 <p className="text-sm font-semibold text-warning mb-1">
-                  ⚠ Question not answered
+                  Not sure about the answer?
                 </p>
                 <p className="text-xs text-text-muted leading-relaxed">
-                  You haven't answered this question yet. You can skip it to get
-                  an explanation, but you won't earn XP for this question.
+                  Try answering the question — even if you're unsure. You'll
+                  learn better from the explanation after.
                 </p>
               </div>
 
@@ -201,7 +206,7 @@ export function AIExplanationSidebar({
                 Skip & Explain (0 XP)
               </button>
             </div>
-          )}
+          )} */}
 
           {/* Show correct answer after skip */}
           {showCorrect && !isAnswered && (
@@ -239,7 +244,31 @@ export function AIExplanationSidebar({
             </div>
           )}
 
-          {/* Explain button — show when answered OR after skip */}
+          {/* Explain button */}
+          {!isAnswered && !showCorrect && (
+            // <div className="flex flex-col gap-4">
+            <>
+              <div className="rounded-xl border border-warning/20 bg-warning/5 p-4">
+                <p className="text-sm font-semibold text-warning mb-1">
+                  Not sure about the answer?
+                </p>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  Try answering the question — even if you're unsure. You'll
+                  learn better from the explanation after.
+                </p>
+              </div>
+              <button
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled
+              >
+                <span className="material-symbols-outlined text-[18px] icon-fill">
+                  lightbulb
+                </span>
+                Explain this question
+              </button>
+            </>
+          )}
+
           {(isAnswered || showCorrect) && !explanation && !isLoading && (
             <button
               onClick={handleExplain}

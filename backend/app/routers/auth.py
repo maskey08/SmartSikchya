@@ -139,34 +139,34 @@ async def refresh_token_endpoint(request: Request, response: Response, db: Async
 
 
 # ── Seed admin — creates first admin account, one-time use ───────
-@router.post("/seed-admin")
-async def seed_admin(db: AsyncSession = Depends(get_db)):
-    """
-    Creates the admin account if none exists.
-    Hit this endpoint ONCE after first deploy.
-    Default: admin@smartsikchya.com / Admin@123
-    Change password immediately after first login.
-    """
-    result = await db.execute(select(User).where(User.role == "admin"))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Admin already exists")
+# @router.post("/seed-admin")
+# async def seed_admin(db: AsyncSession = Depends(get_db)):
+#     """
+#     Creates the admin account if none exists.
+#     Hit this endpoint ONCE after first deploy.
+#     Default: admin@smartsikchya.com / Admin@123
+#     Change password immediately after first login.
+#     """
+#     result = await db.execute(select(User).where(User.role == "admin"))
+#     if result.scalar_one_or_none():
+#         raise HTTPException(status_code=409, detail="Admin already exists")
 
-    admin = User(
-        full_name="Admin",
-        email="admin@smartsikchya.com",
-        password_hash=hash_password("Admin@123"),
-        role="admin",
-    )
-    db.add(admin)
-    await db.flush()
-    db.add(UserXP(user_id=admin.user_id, total_xp=0, level=1))
-    await db.commit()
-    return {
-        "message": "Admin created",
-        "email": "admin@smartsikchya.com",
-        "password": "Admin@123",
-        "warning": "Change this password immediately!",
-    }
+#     admin = User(
+#         full_name="Admin",
+#         email="admin@smartsikchya.com",
+#         password_hash=hash_password("Admin@123"),
+#         role="admin",
+#     )
+#     db.add(admin)
+#     await db.flush()
+#     db.add(UserXP(user_id=admin.user_id, total_xp=0, level=1))
+#     await db.commit()
+#     return {
+#         "message": "Admin created",
+#         "email": "admin@smartsikchya.com",
+#         "password": "Admin@123",
+#         "warning": "Change this password immediately!",
+#     }
 
 
 # ── Google OAuth — Step 1: redirect to Google ────────────────────

@@ -659,6 +659,8 @@ export default function PracticePage() {
     if (!session || !currentQ) return;
 
     // record skip in backend
+    let fb = null;
+
     if (currentQ.question_type !== "short") {
       try {
         fb = await sessionsApi.answer(
@@ -938,7 +940,7 @@ export default function PracticePage() {
               sessionId={session.session_id}
               isAnswered={submitted}
               givenAnswer={session.answers[currentQ.question_id] || ""}
-              correctAnswer={feedback?.correct_answer || ""}
+              correctAnswer={feedback?.correct_answer ?? ""}
               onSkip={handleSkipWithoutNext}
             />
           </div>

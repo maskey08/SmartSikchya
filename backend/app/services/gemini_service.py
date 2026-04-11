@@ -20,7 +20,7 @@ load_dotenv()
 
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-3-flash-preview:generateContent"
+    "gemini-3.1-flash-lite-preview:generateContent"
 )
 
 
@@ -61,8 +61,8 @@ async def get_explanation(question_text: str, correct_answer: str) -> str | None
                     },
                 },
             )
-            data = resp.json()
             print("Response:", resp.text) # Debug log
+            data = resp.json()
             candidates = data.get("candidates", [])
             if candidates:
                 return candidates[0]["content"]["parts"][0]["text"].strip()
