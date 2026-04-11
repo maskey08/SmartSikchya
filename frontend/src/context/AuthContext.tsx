@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import type { ReactNode } from "react";
 import { api } from "@/lib/axios";
 import type { User } from "@/types";
@@ -15,6 +21,7 @@ interface AuthContextValue {
     password: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>; // call after XP-changing actions
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -23,14 +30,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // On mount — check if cookie session is valid
-  useEffect(() => {
-    api
-      .get<User>("/auth/me")
-      .then(({ data }) => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setIsLoading(false));
+  const fetchUser = useCallback(async () => {
+    try {
+      const { data } = await api.get<User>("/auth/me");
+      setUser(data);
+    } catch {
+      setUser(null);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchUser().finally(() => setIsLoading(false));
+  }, [fetchUser]);
 
   const login = async (email: string, password: string) => {
     const { data } = await api.post<User>("/auth/login", { email, password });
@@ -55,6 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = useCallback(async () => {
+    await fetchUser();
+  }, [fetchUser]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -65,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}
@@ -74,6 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  if (!ctx) throw new Error("useAuth must be inside AuthProvider");
   return ctx;
 }

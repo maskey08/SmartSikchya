@@ -170,3 +170,25 @@ def _grade(question, given):
     elif qtype == 3:
         return given.lower() == correct.lower()
     return bool(given)
+
+# ── AI Explanation endpoint (standalone — not tied to session answer) ──
+from pydantic import BaseModel as PM_sess
+
+class ExplainIn(PM_sess):
+    question_text:  str
+    correct_answer: str
+    context:        str = ""
+
+@router.post("/explain")
+async def explain_question(body: ExplainIn, current_user: User = Depends(get_current_user)):
+    """
+    Get AI explanation for any question.
+    Called by the AI sidebar in PracticePage.
+    Does NOT affect session state or XP.
+    """
+    from app.services.gemini_service import get_explanation
+    explanation = await get_explanation(body.question_text, body.correct_answer)
+    if not explanation:
+        from fastapi import HTTPException
+        raise HTTPException(503, "Gemini API not configured. Add GEMINI_API_KEY to .env")
+    return {"explanation": explanation}

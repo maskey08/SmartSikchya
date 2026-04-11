@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { sessionsApi, type QuestionOut, type ReviewItem } from "@/api/practice";
 import { cn } from "@/lib/cn";
-
+import { AIExplanationSidebar } from "./AIExplainationSidebar";
 // ── Types ──────────────────────────────────────────────────────
 type Phase = "loading" | "question" | "answered" | "completing" | "results";
 
@@ -655,6 +655,47 @@ export default function PracticePage() {
     handleNext();
   }, [session, currentQ, handleNext]);
 
+  const handleSkipWithoutNext = async () => {
+    if (!session || !currentQ) return;
+
+    // record skip in backend
+    if (currentQ.question_type !== "short") {
+      try {
+        fb = await sessionsApi.answer(
+          session.session_id,
+          currentQ.question_id,
+          "",
+          0,
+        );
+      } catch {
+        /* empty */
+      }
+    }
+
+    // mark as answered locally so UI unlocks explanation
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            answers: {
+              ...prev.answers,
+              [currentQ.question_id]: "",
+            },
+            feedbacks: {
+              ...prev.feedbacks,
+              [currentQ.question_id]: fb || {
+                is_correct: false,
+                correct_answer: "", // fallback but usually fb exists
+                explanation: null,
+                xp_awarded: 0,
+              },
+            },
+          }
+        : prev,
+    );
+
+    setPhase("answered"); // 👈 IMPORTANT
+  };
   // ── Loading ───────────────────────────────────────────────────
   if (phase === "loading") {
     return (
@@ -803,12 +844,10 @@ export default function PracticePage() {
               +{XP_COLOR[currentQ.difficulty]} XP if correct
             </span>
           </div>
-
           {/* Question text */}
           <h2 className="text-xl font-bold leading-relaxed text-text-main md:text-2xl">
             {currentQ.question_text}
           </h2>
-
           {/* Answer input by type */}
           {currentQ.question_type === "mcq" && (
             <MCQRenderer
@@ -835,9 +874,8 @@ export default function PracticePage() {
               feedback={feedback}
             />
           )}
-
           {/* AI explanation after submit */}
-          {submitted && feedback?.explanation && (
+          {/* {submitted && feedback?.explanation && (
             <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
               <span className="material-symbols-outlined shrink-0 text-primary">
                 auto_awesome
@@ -851,8 +889,7 @@ export default function PracticePage() {
                 </p>
               </div>
             </div>
-          )}
-
+          )} */}
           {/* Action buttons */}
           <div className="flex items-center justify-between border-t border-border pt-4">
             <button
@@ -896,6 +933,14 @@ export default function PracticePage() {
                 </span>
               </button>
             )}
+            <AIExplanationSidebar
+              question={currentQ}
+              sessionId={session.session_id}
+              isAnswered={submitted}
+              givenAnswer={session.answers[currentQ.question_id] || ""}
+              correctAnswer={feedback?.correct_answer || ""}
+              onSkip={handleSkipWithoutNext}
+            />
           </div>
         </div>
       </div>

@@ -15,10 +15,12 @@ HOW TO GET YOUR FREE API KEY:
 """
 import httpx
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent"
+    "gemini-3-flash-preview:generateContent"
 )
 
 
@@ -28,16 +30,22 @@ async def get_explanation(question_text: str, correct_answer: str) -> str | None
     Returns None if API key not configured or request fails.
     """
     api_key = os.environ.get("GEMINI_API_KEY", "")
+    print(api_key);
     if not api_key:
         return None
 
-    prompt = (
-        f"Question: {question_text}\n"
-        f"Correct answer: {correct_answer}\n\n"
-        "In 1-2 sentences, explain why this answer is correct. "
-        "Be clear, concise, and student-friendly. "
-        "Do not repeat the question or answer — just explain the concept."
-    )
+    prompt = f"""
+                You are a helpful tutor.
+
+                Question: {question_text}
+                Correct answer: {correct_answer}
+
+                Explain clearly in 2-3 short sentences:
+                - Why this answer is correct
+                - Keep it simple and direct
+                DO NOT repeat the question or answer — just explain the concept.
+                DO NOT be incomplete.
+            """
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -47,15 +55,17 @@ async def get_explanation(question_text: str, correct_answer: str) -> str | None
                 json={
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {
-                        "maxOutputTokens": 100,
+                        "maxOutputTokens": 1000,
                         "temperature": 0.3,  # low temperature = more factual, less creative
+                        "candidateCount": 1
                     },
                 },
             )
             data = resp.json()
+            print("Response:", resp.text) # Debug log
             candidates = data.get("candidates", [])
             if candidates:
                 return candidates[0]["content"]["parts"][0]["text"].strip()
-    except Exception:
-        pass
+    except Exception as e:
+        print("Gemini error:", e)
     return None

@@ -1,279 +1,220 @@
 /**
- * SettingsPage — profile management + streak display + preferences.
- *
- * WHY show streaks here and not just the sidebar?
- * Settings page is where users reflect on their account and habits.
- * Showing streak history here motivates consistent usage and provides
- * context (streak milestones, longest streak record) that wouldn't
- * fit in the sidebar pill.
+ * SettingsPage — user profile, password change, theme toggle, delete account.
+ * Streaks moved to sidebar XP box hover.
  */
 import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/axios";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/cn";
 
-// ── Types ──────────────────────────────────────────────────────
-interface StreakData {
-  current_streak: number;
-  longest_streak: number;
-  last_active_date: string | null;
-}
+type Tab = "profile" | "security" | "appearance" | "account";
 
-// ── Streak flame component ─────────────────────────────────────
-function StreakFlame({
-  count,
+function TabBtn({
+  id,
+  current,
+  icon,
   label,
-  active,
+  onClick,
 }: {
-  count: number;
+  id: Tab;
+  current: Tab;
+  icon: string;
   label: string;
-  active?: boolean;
+  onClick: (id: Tab) => void;
 }) {
   return (
-    <div
+    <button
+      onClick={() => onClick(id)}
       className={cn(
-        "flex flex-col items-center gap-2 rounded-2xl border p-5",
-        active ? "border-warning/30 bg-warning/5" : "border-border bg-surface",
+        "flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all",
+        id === current
+          ? "bg-primary text-white"
+          : "text-text-muted hover:bg-border/40 hover:text-text-main",
       )}
     >
-      <span
-        className={cn(
-          "material-symbols-outlined text-4xl icon-fill",
-          active && count > 0 ? "text-warning" : "text-text-muted",
-        )}
-      >
-        {count > 0 ? "local_fire_department" : "water_drop"}
-      </span>
-      <p
-        className={cn(
-          "text-3xl font-black",
-          active && count > 0 ? "text-warning" : "text-text-main",
-        )}
-      >
-        {count}
-      </p>
-      <p className="text-xs font-semibold text-text-muted text-center">
-        {label}
-      </p>
-    </div>
+      <span className="material-symbols-outlined text-[18px]">{icon}</span>
+      {label}
+    </button>
   );
 }
 
-// ── Streak calendar — shows last 7 days ────────────────────────
-function StreakCalendar({ lastActiveDate }: { lastActiveDate: string | null }) {
-  const today = new Date();
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (6 - i));
-    return d;
+export default function SettingsPage() {
+  const { user, logout, refreshUser } = useAuth();
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<Tab>("profile");
+
+  // Profile state
+  const [fullName, setFullName] = useState("");
+  const [profileMsg, setProfileMsg] = useState("");
+  const [profileErr, setProfileErr] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Password state
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+  const [pwErr, setPwErr] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+
+  // Theme state (persisted to localStorage)
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    return (localStorage.getItem("theme") as "light" | "dark") ?? "light";
   });
 
-  // Determine which days are "active" — simplified: today if last_active_date is today
-  // In a full implementation you'd fetch session dates from the DB
-  const lastActive = lastActiveDate ? new Date(lastActiveDate) : null;
+  // Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
-  return (
-    <div className="flex gap-2">
-      {days.map((day, i) => {
-        const isToday = day.toDateString() === today.toDateString();
-        const isActive =
-          lastActive && day.toDateString() === lastActive.toDateString();
-        const dayLabel = day
-          .toLocaleDateString("en", { weekday: "short" })
-          .charAt(0);
-
-        return (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
-            <div
-              className={cn(
-                "flex size-9 items-center justify-center rounded-lg text-xs font-bold transition-all",
-                isActive && "bg-warning text-white",
-                isToday && !isActive && "border-2 border-primary text-primary",
-                !isActive && !isToday && "bg-border/30 text-text-muted",
-              )}
-            >
-              {isActive ? (
-                <span className="material-symbols-outlined text-sm icon-fill">
-                  local_fire_department
-                </span>
-              ) : (
-                day.getDate()
-              )}
-            </div>
-            <span className="text-[10px] text-text-muted">{dayLabel}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Main page ──────────────────────────────────────────────────
-export default function SettingsPage() {
-  const { user, logout } = useAuth();
-  const qc = useQueryClient();
-
-  // Form state
-  const [fullName, setFullName] = useState(user?.full_name ?? "");
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
-  const [saveError, setSaveError] = useState("");
-
-  // Update form when user loads
   useEffect(() => {
     if (user?.full_name) setFullName(user.full_name);
   }, [user?.full_name]);
 
-  // Fetch streak data
-  const { data: streak } = useQuery<StreakData>({
-    queryKey: ["streak-me"],
-    queryFn: () => api.get("/progress/streak").then((r) => r.data),
-    // If endpoint not ready yet, return defaults
-    retry: false,
-  });
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
-  async function handleSave(e: FormEvent) {
+  async function saveProfile(e: FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setSaveMsg("");
-    setSaveError("");
+    if (!fullName.trim()) {
+      setProfileErr("Name cannot be empty.");
+      return;
+    }
+    setSavingProfile(true);
+    setProfileMsg("");
+    setProfileErr("");
     try {
-      await api.patch("/auth/me", { full_name: fullName });
-      qc.invalidateQueries({ queryKey: ["auth-me"] });
-      setSaveMsg("Profile updated successfully!");
+      await api.patch("/auth/me", { full_name: fullName.trim() });
+      await refreshUser();
+      setProfileMsg("Profile updated successfully!");
     } catch {
-      setSaveError("Could not save changes. Please try again.");
+      setProfileErr("Could not save. Please try again.");
     } finally {
-      setSaving(false);
+      setSavingProfile(false);
     }
   }
 
-  const streakData: StreakData = streak ?? {
-    current_streak: 0,
-    longest_streak: 0,
-    last_active_date: null,
-  };
+  async function savePassword(e: FormEvent) {
+    e.preventDefault();
+    if (newPw.length < 8) {
+      setPwErr("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwErr("Passwords do not match.");
+      return;
+    }
+    setSavingPw(true);
+    setPwMsg("");
+    setPwErr("");
+    try {
+      await api.post("/auth/change-password", {
+        current_password: currentPw,
+        new_password: newPw,
+      });
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmPw("");
+      setPwMsg("Password changed successfully!");
+    } catch (err: any) {
+      setPwErr(err?.response?.data?.detail ?? "Incorrect current password.");
+    } finally {
+      setSavingPw(false);
+    }
+  }
 
-  // Streak milestone messages
-  const streakMessage =
-    streakData.current_streak === 0
-      ? "Start a session today to begin your streak!"
-      : streakData.current_streak >= 30
-        ? "🔥 Incredible! 30+ day streak!"
-        : streakData.current_streak >= 14
-          ? "🏆 Two weeks strong!"
-          : streakData.current_streak >= 7
-            ? "⭐ One week streak! Keep going!"
-            : streakData.current_streak >= 3
-              ? "💪 Great momentum! Don't stop now!"
-              : "You've started — keep it going!";
+  async function deleteAccount() {
+    if (deleteConfirm !== "DELETE") {
+      return;
+    }
+    setDeletingAccount(true);
+    try {
+      await api.delete("/auth/me");
+      await logout();
+    } catch {
+      setDeletingAccount(false);
+    }
+  }
+
+  const pwStrength =
+    newPw.length === 0 ? 0 : newPw.length < 6 ? 1 : newPw.length < 10 ? 2 : 3;
+  const pwStrengthConfig = [
+    null,
+    { label: "Weak", color: "bg-danger", width: "w-1/3" },
+    { label: "Fair", color: "bg-warning", width: "w-2/3" },
+    { label: "Strong", color: "bg-success", width: "w-full" },
+  ];
+  const strength = pwStrengthConfig[pwStrength];
 
   return (
-    <div className="mx-auto flex max-w-[900px] flex-col gap-8">
-      {/* Header */}
+    <div className="mx-auto flex max-w-[900px] flex-col gap-6">
       <div>
         <h1 className="text-3xl font-black tracking-tight text-text-main md:text-4xl">
           Settings
         </h1>
         <p className="mt-1 text-text-muted">
-          Manage your profile, view your streak, and account details.
+          Manage your account, security, and preferences.
         </p>
       </div>
 
-      {/* ── STREAK SECTION ──────────────────────────────────── */}
-      {/*
-        WHY show streaks in Settings and not a dedicated page?
-        A dedicated streaks page would feel thin — there's not enough
-        content to justify navigation. Settings is where users reflect
-        on their account anyway, so streaks fit naturally here.
-        The sidebar XP pill is the "always-on" reminder; Settings is
-        the "deep dive" view.
-      */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        <div className="mb-5 flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-warning/10">
-            <span className="material-symbols-outlined text-warning icon-fill">
-              local_fire_department
-            </span>
-          </div>
-          <div>
-            <h2 className="font-bold text-text-main">Learning Streak</h2>
-            <p className="text-sm text-text-muted">
-              Practice every day to build your streak.
-            </p>
-          </div>
-        </div>
-
-        {/* Streak stats */}
-        <div className="mb-5 grid grid-cols-2 gap-4">
-          <StreakFlame
-            count={streakData.current_streak}
-            label="Current streak (days)"
-            active
-          />
-          <StreakFlame
-            count={streakData.longest_streak}
-            label="Longest streak (days)"
-          />
-        </div>
-
-        {/* Message */}
-        <div
-          className={cn(
-            "mb-5 rounded-xl border px-4 py-3 text-sm font-medium",
-            streakData.current_streak > 0
-              ? "border-warning/20 bg-warning/5 text-warning"
-              : "border-border bg-background text-text-muted",
-          )}
-        >
-          {streakMessage}
-        </div>
-
-        {/* Last 7 days calendar */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
-            Last 7 Days
-          </p>
-          <StreakCalendar lastActiveDate={streakData.last_active_date} />
-        </div>
-
-        {/* Tips */}
-        {streakData.current_streak === 0 && (
-          <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1">
-              How streaks work
-            </p>
-            <p className="text-sm text-text-muted">
-              Complete at least one practice session or exam per day to maintain
-              your streak. Missing a day resets your streak to zero — but your
-              longest streak record is saved!
-            </p>
-          </div>
-        )}
+      {/* Tab bar */}
+      <div className="flex flex-wrap gap-2">
+        <TabBtn
+          id="profile"
+          current={tab}
+          icon="person"
+          label="Profile"
+          onClick={setTab}
+        />
+        <TabBtn
+          id="security"
+          current={tab}
+          icon="lock"
+          label="Password"
+          onClick={setTab}
+        />
+        <TabBtn
+          id="appearance"
+          current={tab}
+          icon="palette"
+          label="Appearance"
+          onClick={setTab}
+        />
+        <TabBtn
+          id="account"
+          current={tab}
+          icon="manage_accounts"
+          label="Account"
+          onClick={setTab}
+        />
       </div>
 
-      {/* ── PROFILE SECTION ────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        <h2 className="mb-5 font-bold text-text-main">Profile Information</h2>
+      {/* ── PROFILE TAB ────────────────────────────────────── */}
+      {tab === "profile" && (
+        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-5 font-bold text-text-main">Profile Information</h2>
 
-        <form onSubmit={handleSave} className="flex flex-col gap-5">
-          {/* Avatar */}
-          <div className="flex items-center gap-4">
+          {/* Avatar display */}
+          <div className="mb-6 flex items-center gap-4">
             {user?.avatar_url ? (
               <img
                 src={user.avatar_url}
                 alt=""
-                className="size-16 rounded-full object-cover ring-2 ring-border"
+                className="size-20 rounded-full object-cover ring-4 ring-border"
               />
             ) : (
-              <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-2xl font-black text-primary">
+              <div className="flex size-20 items-center justify-center rounded-full bg-primary/10 text-3xl font-black text-primary">
                 {user?.full_name?.charAt(0).toUpperCase() ?? "U"}
               </div>
             )}
             <div>
-              <p className="font-semibold text-text-main">
+              <p className="font-bold text-text-main">
                 {user?.full_name ?? "Student"}
               </p>
               <p className="text-sm text-text-muted">{user?.email}</p>
@@ -290,130 +231,423 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Full name */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-text-main">
-              Full name
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-text-muted">
-                <span className="material-symbols-outlined text-[18px]">
-                  person
+          <form onSubmit={saveProfile} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-text-main">
+                Full name
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-text-muted">
+                  <span className="material-symbols-outlined text-[18px]">
+                    person
+                  </span>
                 </span>
-              </span>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your full name"
-                className="h-12 w-full rounded-xl border border-border bg-background pl-10 pr-4 text-sm text-text-main placeholder:text-text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  className="h-12 w-full rounded-xl border border-border bg-background pl-10 pr-4 text-sm text-text-main focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Email — read only */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-text-main">
-              Email address
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-text-muted">
-                <span className="material-symbols-outlined text-[18px]">
-                  mail
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-text-main">
+                Email address
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-text-muted">
+                  <span className="material-symbols-outlined text-[18px]">
+                    mail
+                  </span>
                 </span>
-              </span>
+                <input
+                  value={user?.email ?? ""}
+                  disabled
+                  type="email"
+                  className="h-12 w-full cursor-not-allowed rounded-xl border border-border bg-border/20 pl-10 pr-4 text-sm text-text-muted"
+                />
+              </div>
+              <p className="text-xs text-text-muted">
+                Email cannot be changed.
+              </p>
+            </div>
+
+            {/* XP summary */}
+            <div className="grid grid-cols-2 gap-3 rounded-xl bg-background p-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-warning icon-fill">
+                  stars
+                </span>
+                <div>
+                  <p className="font-black text-warning">
+                    {user?.total_xp ?? 0} XP
+                  </p>
+                  <p className="text-xs text-text-muted">Total earned</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-purple-500 icon-fill">
+                  military_tech
+                </span>
+                <div>
+                  <p className="font-black text-text-main">
+                    Level {user?.level ?? 1}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {500 - ((user?.total_xp ?? 0) % 500)} XP to next
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {profileMsg && (
+              <div className="flex items-center gap-2 rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-success">
+                <span className="material-symbols-outlined icon-fill">
+                  check_circle
+                </span>
+                {profileMsg}
+              </div>
+            )}
+            {profileErr && (
+              <div className="flex items-center gap-2 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
+                <span className="material-symbols-outlined">error</span>
+                {profileErr}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={savingProfile}
+              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 transition-colors"
+            >
+              {savingProfile ? (
+                <>
+                  <span className="material-symbols-outlined animate-spin text-sm">
+                    progress_activity
+                  </span>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-sm">
+                    save
+                  </span>
+                  Save Changes
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── PASSWORD TAB ───────────────────────────────────── */}
+      {tab === "security" && (
+        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-2 font-bold text-text-main">Change Password</h2>
+          <p className="mb-5 text-sm text-text-muted">
+            Leave current password blank if you signed up with Google (you don't
+            have one).
+          </p>
+
+          <form onSubmit={savePassword} className="flex flex-col gap-4">
+            {/* Current password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-text-main">
+                Current password
+              </label>
+              <div className="flex">
+                <input
+                  type={showCurrent ? "text" : "password"}
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  placeholder="Your current password"
+                  className="h-12 flex-1 rounded-l-xl border border-r-0 border-border bg-background px-4 text-sm text-text-main focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrent(!showCurrent)}
+                  className="flex items-center justify-center rounded-r-xl border border-border bg-background px-4 text-text-muted hover:text-primary"
+                >
+                  <span className="material-symbols-outlined text-xl">
+                    {showCurrent ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* New password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-text-main">
+                New password
+              </label>
+              <div className="flex">
+                <input
+                  type={showNew ? "text" : "password"}
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  required
+                  placeholder="Min. 8 characters"
+                  className="h-12 flex-1 rounded-l-xl border border-r-0 border-border bg-background px-4 text-sm text-text-main focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNew(!showNew)}
+                  className="flex items-center justify-center rounded-r-xl border border-border bg-background px-4 text-text-muted hover:text-primary"
+                >
+                  <span className="material-symbols-outlined text-xl">
+                    {showNew ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
+              {strength && (
+                <div className="flex items-center gap-2">
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-border">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        strength.color,
+                        strength.width,
+                      )}
+                    />
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs font-semibold",
+                      pwStrength === 1
+                        ? "text-danger"
+                        : pwStrength === 2
+                          ? "text-warning"
+                          : "text-success",
+                    )}
+                  >
+                    {strength.label}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Confirm password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-text-main">
+                Confirm new password
+              </label>
               <input
-                type="email"
-                value={user?.email ?? ""}
-                disabled
-                className="h-12 w-full rounded-xl border border-border bg-border/20 pl-10 pr-4 text-sm text-text-muted cursor-not-allowed"
+                type="password"
+                value={confirmPw}
+                onChange={(e) => setConfirmPw(e.target.value)}
+                required
+                placeholder="Re-enter new password"
+                className={cn(
+                  "h-12 w-full rounded-xl border bg-background px-4 text-sm text-text-main focus:outline-none focus:ring-2",
+                  confirmPw && confirmPw !== newPw
+                    ? "border-danger focus:ring-danger/20"
+                    : "border-border focus:border-primary focus:ring-primary/20",
+                )}
               />
+              {confirmPw && confirmPw !== newPw && (
+                <p className="text-xs text-danger">Passwords do not match</p>
+              )}
+            </div>
+
+            {pwMsg && (
+              <div className="flex items-center gap-2 rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-success">
+                <span className="material-symbols-outlined icon-fill">
+                  check_circle
+                </span>
+                {pwMsg}
+              </div>
+            )}
+            {pwErr && (
+              <div className="flex items-center gap-2 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
+                <span className="material-symbols-outlined">error</span>
+                {pwErr}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={savingPw || (!!confirmPw && confirmPw !== newPw)}
+              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 transition-colors"
+            >
+              {savingPw ? (
+                <>
+                  <span className="material-symbols-outlined animate-spin text-sm">
+                    progress_activity
+                  </span>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-sm">
+                    lock_reset
+                  </span>
+                  Update Password
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── APPEARANCE TAB ─────────────────────────────────── */}
+      {tab === "appearance" && (
+        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-5 font-bold text-text-main">Appearance</h2>
+
+          <div className="flex flex-col gap-4">
+            <p className="text-sm font-semibold text-text-main">Theme</p>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Light theme */}
+              <button
+                onClick={() => setTheme("light")}
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-2xl border-2 p-5 transition-all",
+                  theme === "light"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-border/80",
+                )}
+              >
+                <div className="h-16 w-full rounded-xl bg-white border border-gray-200 flex flex-col gap-1.5 p-2 overflow-hidden">
+                  <div className="h-2 w-1/2 rounded bg-gray-200" />
+                  <div className="h-1.5 w-3/4 rounded bg-gray-100" />
+                  <div className="h-1.5 w-2/3 rounded bg-gray-100" />
+                </div>
+                <div className="flex items-center gap-2">
+                  {theme === "light" && (
+                    <span className="material-symbols-outlined text-primary text-sm icon-fill">
+                      check_circle
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "text-sm font-bold",
+                      theme === "light" ? "text-primary" : "text-text-muted",
+                    )}
+                  >
+                    Light
+                  </span>
+                </div>
+              </button>
+
+              {/* Dark theme */}
+              <button
+                onClick={() => setTheme("dark")}
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-2xl border-2 p-5 transition-all",
+                  theme === "dark"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-border/80",
+                )}
+              >
+                <div className="h-16 w-full rounded-xl bg-gray-900 border border-gray-700 flex flex-col gap-1.5 p-2 overflow-hidden">
+                  <div className="h-2 w-1/2 rounded bg-gray-600" />
+                  <div className="h-1.5 w-3/4 rounded bg-gray-700" />
+                  <div className="h-1.5 w-2/3 rounded bg-gray-700" />
+                </div>
+                <div className="flex items-center gap-2">
+                  {theme === "dark" && (
+                    <span className="material-symbols-outlined text-primary text-sm icon-fill">
+                      check_circle
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "text-sm font-bold",
+                      theme === "dark" ? "text-primary" : "text-text-muted",
+                    )}
+                  >
+                    Dark
+                  </span>
+                </div>
+              </button>
             </div>
             <p className="text-xs text-text-muted">
-              Email cannot be changed after registration.
+              Theme preference is saved to your browser.
             </p>
           </div>
+        </div>
+      )}
 
-          {/* XP + Level summary */}
-          <div className="grid grid-cols-2 gap-3 rounded-xl bg-background p-4">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-warning icon-fill">
-                stars
-              </span>
-              <div>
-                <p className="font-black text-warning">
-                  {user?.total_xp ?? 0} XP
-                </p>
-                <p className="text-xs text-text-muted">Total earned</p>
+      {/* ── ACCOUNT TAB ────────────────────────────────────── */}
+      {tab === "account" && (
+        <div className="flex flex-col gap-4">
+          {/* Account info */}
+          <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+            <h2 className="mb-4 font-bold text-text-main">Account Details</h2>
+            <div className="flex flex-col gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-text-muted">Account type</span>
+                <span className="font-semibold capitalize text-text-main">
+                  {user?.role}
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-purple-500 icon-fill">
-                military_tech
-              </span>
-              <div>
-                <p className="font-black text-text-main">
-                  Level {user?.level ?? 1}
-                </p>
-                <p className="text-xs text-text-muted">
-                  {500 - ((user?.total_xp ?? 0) % 500)} XP to next
-                </p>
+              <div className="flex justify-between">
+                <span className="text-text-muted">Member since</span>
+                <span className="font-semibold text-text-main">
+                  {user?.created_at
+                    ? new Date(user.created_at).toLocaleDateString("en-GB", {
+                        month: "long",
+                        year: "numeric",
+                      })
+                    : "—"}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Save feedback */}
-          {saveMsg && (
-            <div className="flex items-center gap-2 rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-success">
-              <span className="material-symbols-outlined icon-fill">
-                check_circle
+          {/* Danger zone */}
+          <div className="rounded-2xl border border-danger/30 bg-surface p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-danger">
+                warning
               </span>
-              {saveMsg}
+              <h2 className="font-bold text-danger">Danger Zone</h2>
             </div>
-          )}
-          {saveError && (
-            <div className="flex items-center gap-2 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
-              <span className="material-symbols-outlined">error</span>
-              {saveError}
+            <p className="mb-4 text-sm text-text-muted">
+              Permanently delete your account and all your data. This action
+              cannot be undone. All your XP, progress, and sessions will be
+              lost.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <label className="text-sm font-semibold text-text-main">
+                Type <span className="font-mono text-danger">DELETE</span> to
+                confirm
+              </label>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="Type DELETE here"
+                className="h-12 w-full rounded-xl border border-danger/30 bg-background px-4 text-sm text-text-main focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
+              />
+              <button
+                onClick={deleteAccount}
+                disabled={deleteConfirm !== "DELETE" || deletingAccount}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-danger text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-danger/90 transition-colors"
+              >
+                {deletingAccount ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-sm">
+                      progress_activity
+                    </span>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">
+                      delete_forever
+                    </span>
+                    Delete My Account
+                  </>
+                )}
+              </button>
             </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <span className="material-symbols-outlined animate-spin text-sm">
-                  progress_activity
-                </span>
-                Saving...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-sm">save</span>
-                Save Changes
-              </>
-            )}
-          </button>
-        </form>
-      </div>
-
-      {/* ── DANGER ZONE ────────────────────────────────────── */}
-      <div className="rounded-2xl border border-danger/20 bg-surface p-6 shadow-sm">
-        <h2 className="mb-2 font-bold text-text-main">Account Actions</h2>
-        <p className="mb-4 text-sm text-text-muted">
-          Manage your session and account.
-        </p>
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 rounded-xl border border-danger/30 px-5 py-2.5 text-sm font-bold text-danger transition-colors hover:bg-danger/5"
-        >
-          <span className="material-symbols-outlined text-[18px]">logout</span>
-          Log out of all devices
-        </button>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
