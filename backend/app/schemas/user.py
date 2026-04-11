@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime,date
 
 
 class UserRegister(BaseModel):
@@ -21,6 +21,10 @@ class UserOut(BaseModel):
     role:       str
     total_xp:   int = 0
     level:      int = 1
+    # Streaks included in /me response so sidebar always has them
+    current_streak:  int = 0
+    longest_streak:  int = 0
+    last_active_date: date | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

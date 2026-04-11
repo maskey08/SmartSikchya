@@ -163,3 +163,12 @@ async def get_my_progress(
         "subjects":          subject_breakdown,
         "recent_sessions":   recent_sessions,
     }
+
+
+@router.get("/streak")
+async def get_my_streak(current_user: User = Depends(get_current_user)):
+    return {
+        "current_streak":    current_user.current_streak,
+        "longest_streak":    current_user.longest_streak,
+        "last_active_date":  current_user.last_active_date.isoformat() if current_user.last_active_date else None,
+    }

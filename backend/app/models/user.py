@@ -1,5 +1,5 @@
-from datetime import datetime
-from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, func
+from datetime import date, datetime
+from sqlalchemy import Date, ForeignKey, Integer, String, Text, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -15,6 +15,9 @@ class User(Base):
     google_id:     Mapped[str | None]    = mapped_column(String(255), unique=True)
     role:          Mapped[str]           = mapped_column(String(20), default="student")
     refresh_token: Mapped[str | None]    = mapped_column(Text)
+    current_streak:   Mapped[int]        = mapped_column(Integer, default=0)
+    longest_streak:   Mapped[int]        = mapped_column(Integer, default=0)
+    last_active_date: Mapped[date | None]= mapped_column(Date)
     created_at:    Mapped[datetime]      = mapped_column(DateTime, server_default=func.now())
 
     xp:       Mapped["UserXP | None"]         = relationship("UserXP", back_populates="user", uselist=False, lazy="selectin")

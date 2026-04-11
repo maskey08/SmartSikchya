@@ -30,6 +30,9 @@ def _user_out(user: User) -> UserOut:
         role=user.role,
         total_xp=xp.total_xp if xp else 0,
         level=xp.level if xp else 1,
+        current_streak=user.current_streak,
+        longest_streak=user.longest_streak,
+        last_active_date=user.last_active_date,
         created_at=user.created_at,
     )
 

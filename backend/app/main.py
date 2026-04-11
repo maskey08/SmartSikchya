@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import settings
-from app.routers import subjects, sessions, auth, admin, exam, progress, recommendations
+from app.routers import subjects, sessions, auth, admin, exam, progress, recommendations, ocr
 
 app = FastAPI(
     title="SmartSikshya API",
@@ -25,7 +25,8 @@ app.include_router(sessions.router)
 app.include_router(progress.router)
 app.include_router(recommendations.router)
 app.include_router(exam.router)
-app.include_router(admin.router)
+app.include_router(classify.router)
+app.include_router(ocr.router)
 
 
 @app.get("/health")
