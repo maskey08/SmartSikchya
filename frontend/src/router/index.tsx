@@ -3,13 +3,14 @@ import { lazy, Suspense } from "react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { Layout } from "@/components/Layout";
+import { AdminLayout } from "@/features/admin/components/AdminLayout";
 
 // ── Public ──────────────────────────────────────────────────────
 const LandingPage = lazy(() => import("@/features/auth/pages/LandingPage"));
 const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage"));
 const SignupPage = lazy(() => import("@/features/auth/pages/SignupPage"));
 
-// ── Protected (student) ─────────────────────────────────────────
+// ── Protected student ───────────────────────────────────────────
 const DashboardPage = lazy(
   () => import("@/features/dashboard/pages/DashboardPage"),
 );
@@ -20,23 +21,31 @@ const SubjectDetailPage = lazy(
   () => import("@/features/subjects/pages/SubjectDetailPage"),
 );
 const PracticePage = lazy(() => import("@/features/quiz/pages/PracticePage"));
-const QuizPage = lazy(() => import("@/features/quiz/pages/QuizPage"));
-const ResultsPage = lazy(() => import("@/features/quiz/pages/ResultsPage"));
 const ProgressPage = lazy(
   () => import("@/features/progress/pages/ProgressPage"),
 );
 const RecommendationsPage = lazy(
   () => import("@/features/recommendations/pages/RecommendationsPage"),
 );
+const ExamPage = lazy(() => import("@/features/exam/pages/ExamPage"));
 const SettingsPage = lazy(
   () => import("@/features/settings/pages/SettingsPage"),
 );
-const ExamPage = lazy(() => import("@/features/exam/pages/ExamPage"));
 
 // ── Admin ────────────────────────────────────────────────────────
-const AdminDashboard = lazy(
+const AdminOverview = lazy(
   () => import("@/features/admin/pages/AdminDashboard"),
 );
+const AdminUsersPage = lazy(
+  () => import("@/features/admin/pages/AdminUsersPage"),
+);
+const AdminQuestionsPage = lazy(
+  () => import("@/features/admin/pages/AdminQuestionsPage"),
+);
+const AdminSubjectsPage = lazy(
+  () => import("@/features/admin/pages/AdminSubjectsPage"),
+);
+const AdminOCRPage = lazy(() => import("@/features/admin/pages/AdminOCRPage"));
 
 const Loader = () => (
   <div className="flex h-screen items-center justify-center bg-background">
@@ -45,7 +54,6 @@ const Loader = () => (
     </span>
   </div>
 );
-
 const S = (C: React.ComponentType) => (
   <Suspense fallback={<Loader />}>
     <C />
@@ -53,23 +61,29 @@ const S = (C: React.ComponentType) => (
 );
 
 export const router = createBrowserRouter([
-  // ── Public ─────────────────────────────────────────────────────
+  // Public
   { path: "/", element: S(LandingPage) },
   { path: "/login", element: S(LoginPage) },
   { path: "/signup", element: S(SignupPage) },
 
-  // ── Admin (must come before protected so AdminRoute check applies) ─
+  // ── Admin — own layout ──────────────────────────────────────
   {
     element: <AdminRoute />,
     children: [
       {
-        element: <Layout />,
-        children: [{ path: "/admin", element: S(AdminDashboard) }],
+        element: <AdminLayout />,
+        children: [
+          { path: "/admin", element: S(AdminOverview) },
+          { path: "/admin/users", element: S(AdminUsersPage) },
+          { path: "/admin/questions", element: S(AdminQuestionsPage) },
+          { path: "/admin/subjects", element: S(AdminSubjectsPage) },
+          { path: "/admin/ocr", element: S(AdminOCRPage) },
+        ],
       },
     ],
   },
 
-  // ── Protected student routes ────────────────────────────────────
+  // ── Protected student ───────────────────────────────────────
   {
     element: <ProtectedRoute />,
     children: [
@@ -81,21 +95,11 @@ export const router = createBrowserRouter([
           { path: "/subjects/:subjectId", element: S(SubjectDetailPage) },
           { path: "/practice", element: S(PracticePage) },
           { path: "/exam", element: S(ExamPage) },
-
-          { path: "/quiz/:chapterId", element: S(QuizPage) },
-          { path: "/quiz/:chapterId/results", element: S(ResultsPage) },
-
           { path: "/progress", element: S(ProgressPage) },
           { path: "/recommendations", element: S(RecommendationsPage) },
           { path: "/settings", element: S(SettingsPage) },
         ],
       },
     ],
-  },
-
-  // ── Exam — fullscreen, no sidebar ──────────────────────────────
-  {
-    element: <ProtectedRoute />,
-    children: [{ path: "/exam/:examId", element: S(ExamPage) }],
   },
 ]);

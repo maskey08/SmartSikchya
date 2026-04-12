@@ -1,10 +1,10 @@
 """
-Admin router — stats, users, subjects, chapters, questions.
-All routes require admin role (checked via get_current_admin).
+Admin router — full CRUD for users, subjects, chapters, questions.
+All routes require admin role.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import select, func
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import select, delete, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -12,18 +12,16 @@ from app.models.user import User, UserXP
 from app.models.subject import Subject, Chapter
 from app.models.question import Question, QuestionMetadata
 from app.models.session import PracticeSession, UserProgress
-from app.services.auth_service import get_current_admin
+from app.services.auth_service import get_current_admin, hash_password
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-# ── Dashboard stats ───────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# DASHBOARD STATS
+# ══════════════════════════════════════════════════════════════
 @router.get("/stats")
-async def dashboard_stats(
-    _: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    # Correct way to count with async SQLAlchemy
+async def dashboard_stats(_: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     total_users     = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
     total_questions = (await db.execute(select(func.count()).select_from(Question))).scalar() or 0
     total_sessions  = (await db.execute(select(func.count()).select_from(PracticeSession))).scalar() or 0
@@ -32,18 +30,15 @@ async def dashboard_stats(
         select(func.count()).select_from(PracticeSession).where(PracticeSession.is_completed == True)
     )).scalar() or 0
 
-    # Recent sessions with user email
     recent_result = await db.execute(
-        select(PracticeSession)
-        .order_by(PracticeSession.start_time.desc())
-        .limit(10)
+        select(PracticeSession).order_by(PracticeSession.start_time.desc()).limit(10)
     )
     recent_sessions = []
     for s in recent_result.scalars().all():
-        user_r = await db.execute(select(User).where(User.user_id == s.user_id))
-        u = user_r.scalar_one_or_none()
+        u_r = await db.execute(select(User).where(User.user_id == s.user_id))
+        u   = u_r.scalar_one_or_none()
         ch_r = await db.execute(select(Chapter).where(Chapter.chapter_id == s.chapter_id))
-        ch = ch_r.scalar_one_or_none()
+        ch   = ch_r.scalar_one_or_none()
         recent_sessions.append({
             "session_id":    s.session_id,
             "user_email":    u.email if u else "?",
@@ -57,22 +52,29 @@ async def dashboard_stats(
         })
 
     return {
-        "total_users":         total_users,
-        "total_questions":     total_questions,
-        "total_sessions":      total_sessions,
-        "completed_sessions":  completed_sessions,
-        "total_subjects":      total_subjects,
-        "recent_sessions":     recent_sessions,
+        "total_users": total_users, "total_questions": total_questions,
+        "total_sessions": total_sessions, "completed_sessions": completed_sessions,
+        "total_subjects": total_subjects, "recent_sessions": recent_sessions,
     }
 
 
-# ── Users ─────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# USERS — full CRUD
+# ══════════════════════════════════════════════════════════════
 @router.get("/users")
 async def list_users(
+    search: str | None = Query(None),
+    role:   str | None = Query(None),
     _: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(User).order_by(User.user_id))
+    stmt = select(User).order_by(User.user_id)
+    if role:
+        stmt = stmt.where(User.role == role)
+    if search:
+        term = f"%{search}%"
+        stmt = stmt.where(or_(User.full_name.ilike(term), User.email.ilike(term)))
+    result = await db.execute(stmt)
     users  = result.scalars().all()
     out = []
     for u in users:
@@ -82,236 +84,298 @@ async def list_users(
             select(func.count()).select_from(PracticeSession).where(PracticeSession.user_id == u.user_id)
         )).scalar() or 0
         out.append({
-            "user_id":      u.user_id,
-            "full_name":    u.full_name,
-            "email":        u.email,
-            "role":         u.role,
-            "avatar_url":   u.avatar_url,
-            "total_xp":     xp.total_xp if xp else 0,
-            "level":        xp.level if xp else 1,
-            "session_count":sess_count,
-            "created_at":   u.created_at.isoformat() if u.created_at else None,
+            "user_id":        u.user_id,
+            "full_name":      u.full_name,
+            "email":          u.email,
+            "role":           u.role,
+            "avatar_url":     u.avatar_url,
+            "total_xp":       xp.total_xp if xp else 0,
+            "level":          xp.level if xp else 1,
+            "session_count":  sess_count,
+            "current_streak": u.current_streak,
+            "created_at":     u.created_at.isoformat() if u.created_at else None,
         })
     return out
 
 
+class UserCreate(BaseModel):
+    full_name: str
+    email:     EmailStr
+    password:  str
+    role:      str = "student"
+
+@router.post("/users")
+async def create_user(
+    body: UserCreate,
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    existing = await db.execute(select(User).where(User.email == body.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, "Email already registered")
+    if body.role not in ("student", "admin"):
+        raise HTTPException(400, "role must be student or admin")
+
+    user = User(
+        full_name=body.full_name,
+        email=body.email,
+        password_hash=hash_password(body.password),
+        role=body.role,
+    )
+    db.add(user)
+    await db.flush()
+    db.add(UserXP(user_id=user.user_id, total_xp=0, level=1))
+    await db.commit()
+    await db.refresh(user)
+    return {"user_id": user.user_id, "message": "User created"}
+
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    role:      str | None = None
+    password:  str | None = None
+
+@router.patch("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    body: UserUpdate,
+    current_admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    user   = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    if body.role and body.role not in ("student", "admin"):
+        raise HTTPException(400, "role must be student or admin")
+    if body.role and user_id == current_admin.user_id:
+        raise HTTPException(400, "Cannot change your own role")
+    if body.full_name is not None: user.full_name    = body.full_name
+    if body.role      is not None: user.role         = body.role
+    if body.password  is not None: user.password_hash = hash_password(body.password)
+    await db.commit()
+    return {"message": "User updated"}
+
+
+# Keep role-only patch for backward compat
 class UserRoleUpdate(BaseModel):
     role: str
 
 @router.patch("/users/{user_id}/role")
-async def update_user_role(
-    user_id: int,
-    body: UserRoleUpdate,
-    current_admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    if body.role not in ("student", "admin"):
-        raise HTTPException(400, "role must be 'student' or 'admin'")
-    if user_id == current_admin.user_id:
-        raise HTTPException(400, "Cannot change your own role")
+async def update_user_role(user_id: int, body: UserRoleUpdate, current_admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    if body.role not in ("student", "admin"): raise HTTPException(400, "role must be student or admin")
+    if user_id == current_admin.user_id:      raise HTTPException(400, "Cannot change your own role")
     result = await db.execute(select(User).where(User.user_id == user_id))
     user   = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(404, "User not found")
+    if not user: raise HTTPException(404, "User not found")
     user.role = body.role
     await db.commit()
-    return {"message": f"User {user_id} role updated to {body.role}"}
+    return {"message": f"Role updated to {body.role}"}
 
 
 @router.delete("/users/{user_id}")
-async def delete_user(
-    user_id: int,
-    current_admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    if user_id == current_admin.user_id:
-        raise HTTPException(400, "Cannot delete your own account")
+async def delete_user(user_id: int, current_admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    if user_id == current_admin.user_id: raise HTTPException(400, "Cannot delete your own account")
     result = await db.execute(select(User).where(User.user_id == user_id))
     user   = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(404, "User not found")
+    if not user: raise HTTPException(404, "User not found")
     await db.delete(user)
     await db.commit()
     return {"message": "User deleted"}
 
 
-# ── Subjects ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# SUBJECTS
+# ══════════════════════════════════════════════════════════════
+@router.get("/subjects")
+async def list_subjects_admin(_: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Subject).order_by(Subject.subject_id))
+    return result.scalars().all()
+
 class SubjectCreate(BaseModel):
-    subject_name: str
-    slug: str
-    description: str | None = None
-    icon: str = "menu_book"
-    color_class: str = "bg-primary/10 text-primary"
+    subject_name: str; slug: str; description: str | None = None
+    icon: str = "menu_book"; color_class: str = "bg-primary/10 text-primary"
 
 class SubjectUpdate(BaseModel):
-    subject_name: str | None = None
-    description:  str | None = None
-    icon:         str | None = None
-    color_class:  str | None = None
+    subject_name: str | None = None; description: str | None = None
+    icon: str | None = None; color_class: str | None = None
 
 @router.post("/subjects")
 async def create_subject(body: SubjectCreate, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
-    s = Subject(**body.model_dump())
-    db.add(s)
-    await db.commit()
-    await db.refresh(s)
+    s = Subject(**body.model_dump()); db.add(s); await db.commit(); await db.refresh(s)
     return {"subject_id": s.subject_id, "message": "Created"}
 
 @router.patch("/subjects/{subject_id}")
 async def update_subject(subject_id: int, body: SubjectUpdate, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Subject).where(Subject.subject_id == subject_id))
     s = result.scalar_one_or_none()
-    if not s:
-        raise HTTPException(404, "Subject not found")
-    for k, v in body.model_dump(exclude_none=True).items():
-        setattr(s, k, v)
-    await db.commit()
-    return {"message": "Updated"}
+    if not s: raise HTTPException(404, "Not found")
+    for k, v in body.model_dump(exclude_none=True).items(): setattr(s, k, v)
+    await db.commit(); return {"message": "Updated"}
 
 @router.delete("/subjects/{subject_id}")
 async def delete_subject(subject_id: int, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Subject).where(Subject.subject_id == subject_id))
     s = result.scalar_one_or_none()
-    if not s:
-        raise HTTPException(404, "Subject not found")
-    await db.delete(s)
-    await db.commit()
-    return {"message": "Deleted"}
+    if not s: raise HTTPException(404, "Not found")
+    await db.delete(s); await db.commit(); return {"message": "Deleted"}
 
 
-# ── Chapters ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# CHAPTERS
+# ══════════════════════════════════════════════════════════════
+@router.get("/chapters")
+async def list_chapters_admin(
+    subject_id: int | None = Query(None),
+    _: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Chapter).order_by(Chapter.subject_id, Chapter.order_num)
+    if subject_id: stmt = stmt.where(Chapter.subject_id == subject_id)
+    result = await db.execute(stmt)
+    chapters = result.scalars().all()
+    out = []
+    for ch in chapters:
+        subj_r = await db.execute(select(Subject).where(Subject.subject_id == ch.subject_id))
+        subj   = subj_r.scalar_one_or_none()
+        q_count = (await db.execute(
+            select(func.count()).select_from(Question).where(Question.chapter_id == ch.chapter_id)
+        )).scalar() or 0
+        out.append({
+            "chapter_id": ch.chapter_id, "subject_id": ch.subject_id,
+            "chapter_name": ch.chapter_name, "order_num": ch.order_num,
+            "description": ch.description, "is_locked": ch.is_locked,
+            "subject_name": subj.subject_name if subj else "?",
+            "question_count": q_count,
+        })
+    return out
+
 class ChapterCreate(BaseModel):
-    subject_id:   int
-    chapter_name: str
-    order_num:    int = 1
-    description:  str | None = None
+    subject_id: int; chapter_name: str; order_num: int = 1; description: str | None = None
 
 class ChapterUpdate(BaseModel):
-    chapter_name: str | None  = None
-    order_num:    int | None  = None
-    description:  str | None  = None
-    is_locked:    bool | None = None
+    chapter_name: str | None = None; order_num: int | None = None
+    description: str | None = None; is_locked: bool | None = None
 
 @router.post("/chapters")
 async def create_chapter(body: ChapterCreate, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
-    ch = Chapter(**body.model_dump())
-    db.add(ch)
-    await db.commit()
-    await db.refresh(ch)
+    ch = Chapter(**body.model_dump()); db.add(ch); await db.commit(); await db.refresh(ch)
     return {"chapter_id": ch.chapter_id, "message": "Created"}
 
 @router.patch("/chapters/{chapter_id}")
 async def update_chapter(chapter_id: int, body: ChapterUpdate, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Chapter).where(Chapter.chapter_id == chapter_id))
     ch = result.scalar_one_or_none()
-    if not ch:
-        raise HTTPException(404, "Chapter not found")
-    for k, v in body.model_dump(exclude_none=True).items():
-        setattr(ch, k, v)
-    await db.commit()
-    return {"message": "Updated"}
+    if not ch: raise HTTPException(404, "Not found")
+    for k, v in body.model_dump(exclude_none=True).items(): setattr(ch, k, v)
+    await db.commit(); return {"message": "Updated"}
 
 @router.delete("/chapters/{chapter_id}")
 async def delete_chapter(chapter_id: int, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Chapter).where(Chapter.chapter_id == chapter_id))
     ch = result.scalar_one_or_none()
-    if not ch:
-        raise HTTPException(404, "Chapter not found")
-    await db.delete(ch)
-    await db.commit()
-    return {"message": "Deleted"}
+    if not ch: raise HTTPException(404, "Not found")
+    await db.delete(ch); await db.commit(); return {"message": "Deleted"}
 
 
-# ── Questions ─────────────────────────────────────────────────────
-class QuestionCreate(BaseModel):
-    subject_id:    int
-    chapter_id:    int
-    question_text: str
-    question_type: int          # 1=mcq, 2=short, 3=fib
-    options:       list[str] | None = None
-    correct_answer:str
-    difficulty:    str = "medium"
-
-class QuestionUpdate(BaseModel):
-    question_text: str | None = None
-    question_type: int | None = None
-    options:       list[str] | None = None
-    correct_answer:str | None = None
-    difficulty:    str | None = None
-
+# ══════════════════════════════════════════════════════════════
+# QUESTIONS — CRUD + search + filters
+# ══════════════════════════════════════════════════════════════
 @router.get("/questions")
 async def list_questions(
-    chapter_id: int | None = None,
-    subject_id: int | None = None,
+    chapter_id:    int | None = Query(None),
+    subject_id:    int | None = Query(None),
+    difficulty:    str | None = Query(None),   # easy | medium | hard
+    question_type: int | None = Query(None),   # 1=mcq 2=short 3=fib
+    search:        str | None = Query(None),   # text search in question_text
+    page:          int        = Query(1, ge=1),
+    page_size:     int        = Query(20, ge=1, le=100),
     _: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Question)
-    if chapter_id:
-        stmt = stmt.where(Question.chapter_id == chapter_id)
-    if subject_id:
-        stmt = stmt.where(Question.subject_id == subject_id)
-    result    = await db.execute(stmt.order_by(Question.question_id))
+    if chapter_id:    stmt = stmt.where(Question.chapter_id == chapter_id)
+    if subject_id:    stmt = stmt.where(Question.subject_id == subject_id)
+    if question_type: stmt = stmt.where(Question.question_type == question_type)
+    if search:        stmt = stmt.where(Question.question_text.ilike(f"%{search}%"))
+    if difficulty:
+        stmt = stmt.join(QuestionMetadata, QuestionMetadata.question_id == Question.question_id)\
+                   .where(QuestionMetadata.difficulty_level == difficulty)
+
+    # Total count for pagination
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Paginate
+    stmt = stmt.order_by(Question.question_id)\
+               .offset((page - 1) * page_size)\
+               .limit(page_size)
+
+    result    = await db.execute(stmt)
     questions = result.scalars().all()
 
     out = []
     for q in questions:
         meta_r = await db.execute(select(QuestionMetadata).where(QuestionMetadata.question_id == q.question_id))
         meta   = meta_r.scalar_one_or_none()
+        ch_r   = await db.execute(select(Chapter).where(Chapter.chapter_id == q.chapter_id))
+        ch     = ch_r.scalar_one_or_none()
+        subj_r = await db.execute(select(Subject).where(Subject.subject_id == q.subject_id))
+        subj   = subj_r.scalar_one_or_none()
         out.append({
             "question_id":    q.question_id,
             "subject_id":     q.subject_id,
             "chapter_id":     q.chapter_id,
+            "subject_name":   subj.subject_name if subj else "?",
+            "chapter_name":   ch.chapter_name if ch else "?",
             "question_text":  q.question_text,
             "question_type":  q.question_type,
             "options":        q.options,
             "correct_answer": q.correct_answer,
             "difficulty":     meta.difficulty_level if meta else "medium",
         })
-    return out
+
+    return {"total": total, "page": page, "page_size": page_size, "questions": out}
+
+
+class QuestionCreate(BaseModel):
+    subject_id: int; chapter_id: int; question_text: str
+    question_type: int; options: list[str] | None = None
+    correct_answer: str; difficulty: str = "medium"
+
+class QuestionUpdate(BaseModel):
+    question_text:  str | None = None; question_type: int | None = None
+    options:        list[str] | None = None; correct_answer: str | None = None
+    difficulty:     str | None = None; subject_id: int | None = None
+    chapter_id:     int | None = None
 
 @router.post("/questions")
 async def create_question(body: QuestionCreate, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
-    q = Question(
-        subject_id=body.subject_id,
-        chapter_id=body.chapter_id,
-        question_text=body.question_text,
-        question_type=body.question_type,
-        options=body.options,
-        correct_answer=body.correct_answer,
-    )
-    db.add(q)
-    await db.flush()
+    q = Question(subject_id=body.subject_id, chapter_id=body.chapter_id, question_text=body.question_text,
+                 question_type=body.question_type, options=body.options, correct_answer=body.correct_answer)
+    db.add(q); await db.flush()
     db.add(QuestionMetadata(question_id=q.question_id, difficulty_level=body.difficulty))
-    await db.commit()
-    await db.refresh(q)
+    await db.commit(); await db.refresh(q)
     return {"question_id": q.question_id, "message": "Created"}
 
 @router.patch("/questions/{question_id}")
 async def update_question(question_id: int, body: QuestionUpdate, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Question).where(Question.question_id == question_id))
     q = result.scalar_one_or_none()
-    if not q:
-        raise HTTPException(404, "Question not found")
+    if not q: raise HTTPException(404, "Question not found")
     for k, v in body.model_dump(exclude_none=True).items():
         if k == "difficulty":
             meta_r = await db.execute(select(QuestionMetadata).where(QuestionMetadata.question_id == question_id))
             meta   = meta_r.scalar_one_or_none()
-            if meta:
-                meta.difficulty_level = v
-            else:
-                db.add(QuestionMetadata(question_id=question_id, difficulty_level=v))
+            if meta: meta.difficulty_level = v
+            else: db.add(QuestionMetadata(question_id=question_id, difficulty_level=v))
         else:
             setattr(q, k, v)
-    await db.commit()
-    return {"message": "Updated"}
+    await db.commit(); return {"message": "Updated"}
 
 @router.delete("/questions/{question_id}")
 async def delete_question(question_id: int, _: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Question).where(Question.question_id == question_id))
     q = result.scalar_one_or_none()
-    if not q:
-        raise HTTPException(404, "Question not found")
-    await db.delete(q)
-    await db.commit()
-    return {"message": "Deleted"}
+    if not q: raise HTTPException(404, "Not found")
+    await db.delete(q); await db.commit(); return {"message": "Deleted"}
