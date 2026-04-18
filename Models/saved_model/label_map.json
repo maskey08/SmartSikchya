@@ -1,1 +1,1 @@
-{"0": "easy", "1": "medium", "2": "hard"}
+{"id2label": {"0": "easy", "1": "medium", "2": "hard"}, "label2id": {"easy": 0, "medium": 1, "hard": 2}}
