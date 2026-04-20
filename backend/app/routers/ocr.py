@@ -1,16 +1,23 @@
 """
-ocr.py — PDF question bank upload.
+ocr.py — PDF question bank upload with universal multi-format parser.
 
-Supported formats:
-  A) Numbered       "1. Question text" / A) option / Answer: C
-  B) SAT / College Board  "RW question 1" / "Math question 1" / "Key C"
+SUPPORTED QUESTION FORMATS (auto-detected, all in one document):
+  A) Qn1: / Ans:          "Qn1: Question text"  /  "Ans: answer"
+  B) Q1. / Q1)            "Q1. Question"  /  "Q1) Question"
+  C) Question 1:          "Question 1: Question text"  /  "Answer: text"
+  D) Standard numbered    "1. Question"  /  "1) Question"  /  A) B) C) D) options
+  E) SAT/College Board    "RW question 1" / "Math question 1"  /  "Key C"
 
-FIX NOTE — "Field required" error:
-  FastAPI's Form() parser receives all multipart fields as strings.
-  Declaring `subject_id: int = Form(...)` makes FastAPI try to coerce "1" → 1,
-  which works in most cases BUT fails when Axios sends the value without explicit
-  casting and the Pydantic v2 strict mode rejects it.
-  Solution: accept as str, convert manually. This is always safe.
+ANSWER FORMATS (all detected):
+  "Ans: x = 5"
+  "Answer: B"
+  "Ans: x = 3 or x = -3"
+  "Key C"
+  Answer key block at end: "1. C   2. A   3. B"
+
+FIX NOTE — "Field required":
+  Accepts subject_id/chapter_id as str from Form() and converts manually.
+  Never set Content-Type manually for multipart — browser/fetch does it.
 """
 import re
 import io
@@ -26,51 +33,83 @@ from app.services.classifier import classify_batch, is_model_available
 
 router = APIRouter(prefix="/ocr", tags=["ocr"])
 
-# ── Regex patterns ─────────────────────────────────────────────
-NUM_Q    = re.compile(r'^(\d{1,3})[.)]\s+(.+)', re.IGNORECASE)
-SAT_Q    = re.compile(r'^(?:RW|Math|Reading|Writing|Science|History)\s+question\s+(\d+)', re.IGNORECASE)
-OPT_ABCD = re.compile(r'^([A-Da-d])[.)]\s+(.+)')
-ANS_KEY  = re.compile(r'^Key\s+([A-Da-d])\s*$', re.IGNORECASE)
-ANS_INLINE   = re.compile(r'(?i)^ans(?:wer)?[:\s]+(.+)')
-ANS_COMPACT  = re.compile(r'(\d+)[.)]\s*([A-Da-d])')
-SKIP_LINE    = re.compile(
+# ── Question-start patterns (ordered: most specific first) ────────
+Q_PATTERNS = [
+    # "Qn1:" or "Qn 1:" or "Qn1."
+    re.compile(r'^Qn\s*(\d+)\s*[:.]\s*(.+)', re.IGNORECASE),
+    # "Q1." or "Q1)" or "Q 1."
+    re.compile(r'^Q\s*(\d+)\s*[.)]\s*(.+)', re.IGNORECASE),
+    # "Question 1:" or "Question 1."
+    re.compile(r'^Question\s+(\d+)\s*[:.]\s*(.+)', re.IGNORECASE),
+    # "1. text" (standard numbered with dot)
+    re.compile(r'^(\d{1,3})[.]\s+(.+)'),
+    # "1) text" (standard numbered with paren)
+    re.compile(r'^(\d{1,3})[)]\s+(.+)'),
+]
+
+# SAT-style header (no question text on same line)
+SAT_Q = re.compile(
+    r'^(?:RW|Math|Reading|Writing|Science|History|Grammar)\s+question\s+(\d+)',
+    re.IGNORECASE
+)
+
+# MCQ option line: "A) text" or "A. text" or "(A) text"
+OPT_PAT = re.compile(r'^\(?([A-Da-d])[.)]\)?\s+(.+)')
+
+# Answer patterns
+ANS_PATTERNS = [
+    re.compile(r'^Ans(?:wer)?\s*[:.]\s*(.+)', re.IGNORECASE),   # Ans: / Answer:
+    re.compile(r'^Key\s+([A-Da-d])\s*$', re.IGNORECASE),         # Key C  (SAT)
+    re.compile(r'^Correct\s*[:.]\s*(.+)', re.IGNORECASE),         # Correct: B
+    re.compile(r'^Solution\s*[:.]\s*(.+)', re.IGNORECASE),        # Solution: x=5
+]
+
+# Compact answer key: "1. C  2. A" or "1) C  2) A"
+ANS_KEY_COMPACT = re.compile(r'(\d+)[.)]\s*([A-Da-d])\b')
+
+# Answer-key block heading
+ANSKEY_BLOCK = re.compile(r'(?i)^\s*(?:answer\s*key|answers?\s*:|key\s*:)\s*$')
+
+# Lines to skip in SAT format
+SKIP_SAT = re.compile(
     r'^(?:Key Explanation|Distractor Explanation|Domain|Skill|'
     r'THE DIGITAL SAT|Page \d+|Copyright|\d+ THE DIGITAL)',
     re.IGNORECASE
 )
-ANSKEY_BLOCK = re.compile(r'(?i)answer\s*key|answers?\s*:')
-QUESTION_START = re.compile(
-    r'^(?:Which|What|How|Select|The|Based|According|In |If |A |An |Complete)',
+
+# SAT question sentence starters
+SAT_Q_START = re.compile(
+    r'^(?:Which|What|How|Select|Based|According|The|If |In |A |An |Complete)',
     re.IGNORECASE
 )
 
 
 def _extract_text(pdf_bytes: bytes) -> str:
-    text = ""
+    """pdfplumber first, Tesseract fallback for scanned docs."""
     try:
         import pdfplumber
+        text = ""
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
-                t = page.extract_text() or ""
-                text += t + "\n\n"
+                text += (page.extract_text() or "") + "\n\n"
         if text.strip():
             return text
     except ImportError:
         pass
     except Exception:
         pass
+
     try:
         from pdf2image import convert_from_bytes
         import pytesseract
-        images = convert_from_bytes(pdf_bytes, dpi=300)
-        for img in images:
+        text = ""
+        for img in convert_from_bytes(pdf_bytes, dpi=300):
             text += pytesseract.image_to_string(img) + "\n\n"
         return text
     except ImportError:
         raise HTTPException(
             503,
-            "pdfplumber is not installed on this server. "
-            "Run: pip install pdfplumber"
+            "pdfplumber is not installed. Run: pip install pdfplumber"
         )
     except Exception as e:
         raise HTTPException(500, f"OCR failed: {e}")
@@ -78,165 +117,185 @@ def _extract_text(pdf_bytes: bytes) -> str:
 
 def _detect_format(lines: list[str]) -> str:
     sat_hits = sum(1 for l in lines if SAT_Q.match(l.strip()))
-    num_hits = sum(1 for l in lines if NUM_Q.match(l.strip()))
-    return "sat" if sat_hits >= num_hits else "numbered"
+    std_hits = sum(1 for l in lines if any(p.match(l.strip()) for p in Q_PATTERNS))
+    return "sat" if sat_hits > 0 and sat_hits >= std_hits else "standard"
 
 
-def _parse_sat(lines: list[str]) -> list[dict]:
-    questions = []
-    q_num = 0
-    in_question = False
-    passage_buf: list[str] = []
-    question_text = ""
-    opts: list[str] = []
-    correct_key: str | None = None
-    found_question_line = False
-
-    def flush():
-        nonlocal question_text, opts, correct_key, found_question_line, passage_buf
-        if not question_text.strip():
-            passage_buf=[]; question_text=""; opts=[]; correct_key=None; found_question_line=False
-            return
-        ans = None
-        if correct_key and opts:
-            idx = {"A":0,"B":1,"C":2,"D":3}.get(correct_key.upper(), -1)
-            if 0 <= idx < len(opts):
-                ans = opts[idx]
-        elif correct_key:
-            ans = correct_key
-        full_text = question_text.strip()
-        if passage_buf:
-            passage = " ".join(passage_buf).strip()
-            if len(passage) > 20:
-                full_text = passage + "\n\n" + full_text
-        questions.append({
-            "q_num": q_num,
-            "question_text": full_text,
-            "options": opts[:] if len(opts) >= 2 else None,
-            "correct_answer": ans,
-            "question_type": 1 if len(opts) >= 2 else 2,
-            "answer_found": ans is not None,
-        })
-        passage_buf=[]; question_text=""; opts=[]; correct_key=None; found_question_line=False
-
-    for raw_line in lines:
-        line = raw_line.strip()
-        if not line or SKIP_LINE.match(line):
-            continue
-        sat_match = SAT_Q.match(line)
-        if sat_match:
-            flush()
-            q_num = int(sat_match.group(1))
-            in_question = True
-            continue
-        if not in_question:
-            continue
-        if found_question_line:
-            opt_m = OPT_ABCD.match(line)
-            if opt_m:
-                opts.append(opt_m.group(2).strip())
-                continue
-            key_m = ANS_KEY.match(line)
-            if key_m:
-                correct_key = key_m.group(1).upper()
-                continue
-            if correct_key:
-                continue   # skip explanation lines after key
-        else:
-            opt_m = OPT_ABCD.match(line)
-            if opt_m:
-                opts.append(opt_m.group(2).strip())
-                continue
-            if QUESTION_START.match(line) or "?" in line:
-                question_text = line
-                found_question_line = True
-                continue
-            passage_buf.append(line)
-
-    flush()
-    return questions
+def _match_question_start(line: str):
+    """Try all Q_PATTERNS. Returns (q_num, question_text) or None."""
+    for pat in Q_PATTERNS:
+        m = pat.match(line)
+        if m:
+            return int(m.group(1)), m.group(2).strip()
+    return None
 
 
-def _parse_numbered(lines: list[str]) -> list[dict]:
-    anskey_start = -1
+def _match_answer(line: str):
+    """Try all answer patterns. Returns answer text or None."""
+    for pat in ANS_PATTERNS:
+        m = pat.match(line)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def _parse_standard(lines: list[str]) -> list[dict]:
+    """
+    Parse formats A–D. All share the same logic:
+    - Question starts detected by Q_PATTERNS
+    - Options detected by OPT_PAT
+    - Answers detected by ANS_PATTERNS or end-of-doc answer key
+    - Multi-line questions: text continues until an option, answer, or new question
+    """
+    # Detect and extract end-of-document answer key
+    anskey_idx = -1
     for i, line in enumerate(lines):
         if ANSKEY_BLOCK.match(line.strip()):
-            anskey_start = i
+            anskey_idx = i
             break
+
     answer_key: dict[int, str] = {}
-    if anskey_start >= 0:
-        for line in lines[anskey_start:]:
-            for num, letter in ANS_COMPACT.findall(line):
+    if anskey_idx >= 0:
+        for line in lines[anskey_idx:]:
+            for num, letter in ANS_KEY_COMPACT.findall(line):
                 answer_key[int(num)] = letter.upper()
-        content_lines = lines[:anskey_start]
+        content_lines = lines[:anskey_idx]
     else:
         content_lines = lines
 
     questions: list[dict] = []
-    cur_num: int | None = None
-    cur_text = ""
-    cur_opts: list[str] = []
+    cur_num:  int | None = None
+    cur_text: str        = ""
+    cur_opts: list[str]  = []
     cur_ans:  str | None = None
 
     def flush():
         nonlocal cur_num, cur_text, cur_opts, cur_ans
         if cur_num is None or not cur_text.strip():
-            cur_num=None; cur_text=""; cur_opts=[]; cur_ans=None; return
+            cur_num = None; cur_text = ""; cur_opts = []; cur_ans = None
+            return
         is_mcq = len(cur_opts) >= 2
         ans = cur_ans
         if ans is None and cur_num in answer_key:
-            key = answer_key[cur_num]
-            idx = {"A":0,"B":1,"C":2,"D":3}.get(key, -1)
+            key = answer_key[cur_num].upper()
+            idx = {"A": 0, "B": 1, "C": 2, "D": 3}.get(key, -1)
             if is_mcq and 0 <= idx < len(cur_opts):
                 ans = cur_opts[idx]
             else:
                 ans = key
+        # If answer is a single letter and we have options, map it
+        if ans and len(ans) == 1 and ans.upper() in "ABCD" and is_mcq:
+            idx = {"A": 0, "B": 1, "C": 2, "D": 3}.get(ans.upper(), -1)
+            if 0 <= idx < len(cur_opts):
+                ans = cur_opts[idx]
         questions.append({
-            "q_num": cur_num,
-            "question_text": cur_text.strip(),
-            "options": cur_opts[:] if is_mcq else None,
+            "q_num":          cur_num,
+            "question_text":  cur_text.strip(),
+            "options":        cur_opts[:] if is_mcq else None,
             "correct_answer": ans,
-            "question_type": 1 if is_mcq else 2,
-            "answer_found": ans is not None,
+            "question_type":  1 if is_mcq else 2,
+            "answer_found":   ans is not None,
         })
-        cur_num=None; cur_text=""; cur_opts=[]; cur_ans=None
+        cur_num = None; cur_text = ""; cur_opts = []; cur_ans = None
 
     for raw in content_lines:
         line = raw.strip()
-        if not line or SKIP_LINE.match(line):
+        if not line:
             continue
-        q_m = NUM_Q.match(line)
-        if q_m:
+
+        # New question?
+        qstart = _match_question_start(line)
+        if qstart:
             flush()
-            cur_num = int(q_m.group(1))
-            cur_text = q_m.group(2).strip()
+            cur_num, cur_text = qstart
             continue
-        if cur_num is not None:
-            opt_m = OPT_ABCD.match(line)
-            if opt_m:
-                cur_opts.append(opt_m.group(2).strip())
-                continue
-            ans_m = ANS_INLINE.match(line)
-            if ans_m:
-                cur_ans = ans_m.group(1).strip()
-                continue
-            key_m = ANS_KEY.match(line)
-            if key_m:
-                cur_ans = key_m.group(1).upper()
-                continue
-            if not cur_opts:
-                cur_text += " " + line
+
+        if cur_num is None:
+            continue  # haven't found first question yet
+
+        # Option?
+        opt_m = OPT_PAT.match(line)
+        if opt_m:
+            cur_opts.append(opt_m.group(2).strip())
+            continue
+
+        # Answer?
+        ans = _match_answer(line)
+        if ans is not None:
+            cur_ans = ans
+            continue
+
+        # Continuation of question text (only before options appear)
+        if not cur_opts and cur_ans is None:
+            cur_text += " " + line
 
     flush()
     return questions
 
 
+def _parse_sat(lines: list[str]) -> list[dict]:
+    """Parse SAT / College Board format."""
+    questions = []
+    q_num     = 0
+    in_q      = False
+    passage:  list[str] = []
+    q_text    = ""
+    opts:     list[str] = []
+    key:      str | None = None
+    found_q_line = False
+
+    def flush():
+        nonlocal q_text, opts, key, found_q_line, passage
+        if not q_text.strip():
+            passage=[]; q_text=""; opts=[]; key=None; found_q_line=False; return
+        ans = None
+        if key and opts:
+            idx = {"A":0,"B":1,"C":2,"D":3}.get(key.upper(), -1)
+            if 0 <= idx < len(opts):
+                ans = opts[idx]
+        full = q_text.strip()
+        if passage:
+            p = " ".join(passage).strip()
+            if p:
+                full = p + "\n\n" + full
+        questions.append({
+            "q_num": q_num, "question_text": full,
+            "options": opts[:] if len(opts) >= 2 else None,
+            "correct_answer": ans, "question_type": 1 if len(opts) >= 2 else 2,
+            "answer_found": ans is not None,
+        })
+        passage=[]; q_text=""; opts=[]; key=None; found_q_line=False
+
+    for raw in lines:
+        line = raw.strip()
+        if not line or SKIP_SAT.match(line): continue
+        sat_m = SAT_Q.match(line)
+        if sat_m:
+            flush(); q_num = int(sat_m.group(1)); in_q = True; continue
+        if not in_q: continue
+        if found_q_line:
+            opt_m = OPT_PAT.match(line)
+            if opt_m: opts.append(opt_m.group(2).strip()); continue
+            key_m = re.match(r'^Key\s+([A-Da-d])\s*$', line, re.IGNORECASE)
+            if key_m: key = key_m.group(1).upper(); continue
+            if key: continue
+        else:
+            opt_m = OPT_PAT.match(line)
+            if opt_m: opts.append(opt_m.group(2).strip()); continue
+            if SAT_Q_START.match(line) or "?" in line:
+                q_text = line; found_q_line = True; continue
+            passage.append(line)
+    flush()
+    return questions
+
+
 def _parse_questions(raw: str) -> list[dict]:
+    """Auto-detect format and parse."""
     lines = [l.rstrip() for l in raw.split("\n")]
     fmt   = _detect_format(lines)
     if fmt == "sat":
         return _parse_sat(lines)
-    return _parse_numbered(lines)
+    return _parse_standard(lines)
 
 
 # ── Pydantic ───────────────────────────────────────────────────
@@ -250,19 +309,18 @@ class SubmitOCRIn(BaseModel):
 @router.post("/upload")
 async def upload_pdf(
     file:       UploadFile = File(...),
-    # Accept as str — FormData always sends strings; convert below
-    subject_id: str        = Form(...),
+    subject_id: str        = Form(...),   # str — FormData always sends strings
     chapter_id: str | None = Form(None),
     _: User = Depends(get_current_admin),
 ):
-    # ── Convert + validate ──────────────────────────────────────
+    # Validate + convert ids
     try:
         subj_id_int = int(subject_id)
     except (ValueError, TypeError):
         raise HTTPException(422, "subject_id must be an integer")
 
     chap_id_int: int | None = None
-    if chapter_id and chapter_id.strip():
+    if chapter_id and chapter_id.strip() and chapter_id.strip() != "null":
         try:
             chap_id_int = int(chapter_id)
         except (ValueError, TypeError):
@@ -274,39 +332,39 @@ async def upload_pdf(
     pdf_bytes = await file.read()
     if len(pdf_bytes) > 20 * 1024 * 1024:
         raise HTTPException(400, "File too large. Maximum 20 MB.")
-    if len(pdf_bytes) < 100:
+    if len(pdf_bytes) < 50:
         raise HTTPException(400, "File appears to be empty or corrupt.")
 
-    # ── Extract + parse ─────────────────────────────────────────
+    # Extract text
     raw_text = _extract_text(pdf_bytes)
     if not raw_text or not raw_text.strip():
         raise HTTPException(
             400,
-            "No text could be extracted from this PDF. "
-            "Ensure it is a digital PDF, not a scanned image. "
-            "Install pdfplumber: pip install pdfplumber"
+            "No text could be extracted. Ensure this is a digital PDF (not a scanned image). "
+            "Install pdfplumber in the backend venv: pip install pdfplumber"
         )
 
+    # Parse
     parsed = _parse_questions(raw_text)
     fmt    = _detect_format(raw_text.splitlines())
 
     if not parsed:
+        # Return helpful debug info
+        sample = raw_text.strip()[:300].replace("\n", " | ")
         raise HTTPException(
             400,
-            f"No questions detected (format detected: {fmt}). "
-            "Supported formats: numbered '1. Question…' or SAT 'RW question 1 / Math question 1'."
+            f"No questions detected (format: {fmt}). "
+            f"Extracted text sample: '{sample}'. "
+            f"Supported: 'Qn1: text / Ans: x', 'Q1. text', 'Question 1: text', "
+            f"'1. text', '1) text', or SAT 'RW question 1 / Key C'."
         )
 
-    # ── Classify difficulty ──────────────────────────────────────
+    # Classify difficulty
     texts = [q["question_text"][:512] for q in parsed]
-    if is_model_available():
-        difficulties = classify_batch(texts)
-    else:
-        difficulties = ["medium"] * len(parsed)
+    difficulties = classify_batch(texts) if is_model_available() else ["medium"] * len(parsed)
 
-    result = []
-    for i, (q, diff) in enumerate(zip(parsed, difficulties)):
-        result.append({
+    result = [
+        {
             "temp_id":        i + 1,
             "question_text":  q["question_text"],
             "options":        q["options"],
@@ -314,12 +372,13 @@ async def upload_pdf(
             "question_type":  q["question_type"],
             "difficulty":     diff,
             "answer_found":   q["answer_found"],
-        })
+        }
+        for i, (q, diff) in enumerate(zip(parsed, difficulties))
+    ]
 
-    missing = sum(1 for r in result if not r["answer_found"])
     return {
         "total_extracted": len(result),
-        "answers_missing": missing,
+        "answers_missing": sum(1 for r in result if not r["answer_found"]),
         "format_detected": fmt,
         "subject_id":      subj_id_int,
         "chapter_id":      chap_id_int,
@@ -342,15 +401,14 @@ async def submit_ocr_questions(
 
     for q in body.questions:
         text = (q.get("question_text") or "").strip()
-        if not text or len(text) < 5:
+        if not text or len(text) < 3:
             skipped += 1
             continue
-
         new_q = Question(
             subject_id=body.subject_id,
             chapter_id=q.get("chapter_id") or body.chapter_id,
             question_text=text,
-            question_type=q.get("question_type", 1),
+            question_type=q.get("question_type", 2),  # default short answer for non-MCQ
             options=q.get("options"),
             correct_answer=q.get("correct_answer"),
         )

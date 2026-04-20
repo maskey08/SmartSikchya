@@ -251,3 +251,119 @@ async def google_callback(code: str, response: Response, db: AsyncSession = Depe
     redirect.set_cookie("access_token",  access,  httponly=True, samesite="lax", max_age=86400)
     redirect.set_cookie("refresh_token", refresh, httponly=True, samesite="lax", max_age=604800)
     return redirect
+
+
+# ── Forgot / Reset password ──────────────────────────────────────
+# import secrets
+# import string
+# from datetime import datetime, timezone, timedelta
+
+# # In-memory OTP store: { email: {otp, expires_at} }
+# # For production use Redis or a DB table. For this project, in-memory is fine.
+# _otp_store: dict[str, dict] = {}
+
+# class ForgotPasswordIn(PM):
+#     email: str
+
+# class VerifyOTPIn(PM):
+#     email: str
+#     otp:   str
+
+# class ResetPasswordIn(PM):
+#     email:        str
+#     otp:          str
+#     new_password: str
+
+# def _generate_otp(length: int = 6) -> str:
+#     return "".join(secrets.choice(string.digits) for _ in range(length))
+
+
+# @router.post("/forgot-password")
+# async def forgot_password(
+#     body: ForgotPasswordIn,
+#     db: AsyncSession = Depends(get_db),
+# ):
+#     """
+#     Step 1: request an OTP for the given email.
+#     Always returns 200 even if email not found (security best practice —
+#     don't reveal whether an email is registered).
+#     """
+#     result = await db.execute(select(User).where(User.email == body.email.lower().strip()))
+#     user   = result.scalar_one_or_none()
+
+#     if user:
+#         otp = _generate_otp()
+#         _otp_store[body.email.lower().strip()] = {
+#             "otp":        otp,
+#             "expires_at": datetime.now(timezone.utc) + timedelta(minutes=15),
+#         }
+#         # ── Send email ────────────────────────────────────────────
+#         # If you have SMTP configured, send here. Otherwise log to console.
+#         print(f"\n[PASSWORD RESET] OTP for {body.email}: {otp}\n")
+#         try:
+#             import smtplib
+#             from email.mime.text import MIMEText
+#             smtp_host = getattr(settings, "SMTP_HOST", None)
+#             smtp_user = getattr(settings, "SMTP_USER", None)
+#             smtp_pass = getattr(settings, "SMTP_PASS", None)
+#             if smtp_host and smtp_user and smtp_pass:
+#                 msg = MIMEText(
+#                     f"Your SmartSikshya password reset OTP is: {otp}\n\n"
+#                     f"This code expires in 15 minutes.\n\n"
+#                     f"If you did not request a password reset, ignore this email."
+#                 )
+#                 msg["Subject"] = "SmartSikshya — Password Reset OTP"
+#                 msg["From"]    = smtp_user
+#                 msg["To"]      = body.email
+#                 with smtplib.SMTP_SSL(smtp_host, 465) as s:
+#                     s.login(smtp_user, smtp_pass)
+#                     s.send_message(msg)
+#         except Exception as e:
+#             print(f"[EMAIL] Could not send email: {e}. OTP printed above.")
+
+#     return {"message": "If that email is registered, a reset code has been sent."}
+
+
+# @router.post("/verify-otp")
+# async def verify_otp(body: VerifyOTPIn):
+#     """Step 2 (optional check): verify the OTP is valid before showing new-password form."""
+#     email   = body.email.lower().strip()
+#     record  = _otp_store.get(email)
+#     if not record:
+#         raise HTTPException(400, "No reset code found for this email. Request a new one.")
+#     if datetime.now(timezone.utc) > record["expires_at"]:
+#         _otp_store.pop(email, None)
+#         raise HTTPException(400, "Reset code has expired. Request a new one.")
+#     if record["otp"] != body.otp.strip():
+#         raise HTTPException(400, "Invalid reset code.")
+#     return {"message": "OTP verified. Proceed to reset password."}
+
+
+# @router.post("/reset-password")
+# async def reset_password(
+#     body: ResetPasswordIn,
+#     db: AsyncSession = Depends(get_db),
+# ):
+#     """Step 3: set new password after verifying OTP."""
+#     email  = body.email.lower().strip()
+#     record = _otp_store.get(email)
+
+#     if not record:
+#         raise HTTPException(400, "No reset code found. Request a new code.")
+#     if datetime.now(timezone.utc) > record["expires_at"]:
+#         _otp_store.pop(email, None)
+#         raise HTTPException(400, "Reset code has expired. Request a new one.")
+#     if record["otp"] != body.otp.strip():
+#         raise HTTPException(400, "Invalid reset code.")
+#     if len(body.new_password) < 8:
+#         raise HTTPException(400, "Password must be at least 8 characters.")
+
+#     result = await db.execute(select(User).where(User.email == email))
+#     user   = result.scalar_one_or_none()
+#     if not user:
+#         raise HTTPException(404, "User not found.")
+
+#     user.password_hash = hash_password(body.new_password)
+#     await db.commit()
+#     _otp_store.pop(email, None)   # OTP consumed — cannot be reused
+#     return {"message": "Password reset successfully. You can now log in."}
