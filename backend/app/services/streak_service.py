@@ -1,6 +1,5 @@
 """
 streak_service.py — Updates streak on the User model directly.
-No separate table — streak lives in users.current_streak / longest_streak / last_active_date.
 Called after every completed session (practice or exam).
 """
 from datetime import date, timedelta

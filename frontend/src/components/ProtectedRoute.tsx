@@ -1,9 +1,9 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+const publicPaths = ["/", "/login", "/signup"];
 
 export function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuth();
-
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -13,7 +13,9 @@ export function ProtectedRoute() {
       </div>
     );
   }
-
+  if (publicPaths.includes(location.pathname)) {
+    return <Outlet />;
+  }
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
@@ -33,7 +35,9 @@ export function AdminRoute() {
       </div>
     );
   }
-
+  if (publicPaths.includes(location.pathname)) {
+    return <Outlet />;
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 

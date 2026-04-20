@@ -117,7 +117,7 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
           {/* XP Box with streak overlay */}
           {!isAdmin && user && (
             <div
-              className="relative mx-2 cursor-pointer overflow-hidden rounded-xl bg-background p-3"
+              className="relative mx-2 flex min-h-[80px] cursor-pointer flex-col justify-center overflow-hidden rounded-xl bg-background p-3"
               onMouseEnter={() => setStreakHover(true)}
               onMouseLeave={() => setStreakHover(false)}
             >

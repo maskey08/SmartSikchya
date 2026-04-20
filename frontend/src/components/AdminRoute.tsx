@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export function AdminRoute() {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
-
+  const publicPaths = ["/", "/login", "/signup"];
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -13,7 +13,9 @@ export function AdminRoute() {
       </div>
     );
   }
-
+  if (publicPaths.includes(location.pathname)) {
+    return <Outlet />;
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
