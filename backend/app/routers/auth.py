@@ -10,11 +10,12 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db, settings
 from app.models.user import User, UserXP
+from app.models.password_reset import PasswordResetToken
 from app.schemas.user import UserRegister, UserLogin, UserOut, UserUpdate
 from app.services.auth_service import (
     hash_password, verify_password,
@@ -24,11 +25,6 @@ from app.services.auth_service import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-# In-memory OTP store  {email: {otp, expires_at}}
-# Good enough for a single-process dev/demo server.
-# For multi-process prod: replace with a Redis or DB table.
-_otp_store: dict[str, dict] = {}
 
 
 # ── Pydantic models (all together at the top) ────────────────────
@@ -324,10 +320,29 @@ async def forgot_password(
 
     if user:
         otp = _generate_otp()
-        _otp_store[body.email.lower().strip()] = {
-            "otp":        otp,
-            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=15),
-        }
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+        # Invalidate any existing unused tokens for this user/email
+        await db.execute(
+            update(PasswordResetToken)
+            .where(
+                PasswordResetToken.email == body.email.lower().strip(),
+                PasswordResetToken.used == False,
+            )
+            .values(used=True)
+        )
+
+        # Store new token in database
+        reset_token = PasswordResetToken(
+            user_id=user.user_id,
+            email=body.email.lower().strip(),
+            token=otp,
+            expires_at=expires_at,
+            used=False,
+        )
+        db.add(reset_token)
+        await db.commit()
+
         print(f"\n[PASSWORD RESET] OTP for {body.email}: {otp}  (valid 15 min)\n")
 
         # Send email if SMTP is configured in .env
@@ -357,16 +372,25 @@ async def forgot_password(
 
 # ── Forgot password — Step 2: verify OTP ─────────────────────────
 @router.post("/verify-otp")
-async def verify_otp(body: VerifyOTPIn):
-    email  = body.email.lower().strip()
-    record = _otp_store.get(email)
-    if not record:
+async def verify_otp(body: VerifyOTPIn, db: AsyncSession = Depends(get_db)):
+    email = body.email.lower().strip()
+    result = await db.execute(
+        select(PasswordResetToken)
+        .where(
+            PasswordResetToken.email == email,
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > datetime.now(timezone.utc),
+        )
+        .order_by(PasswordResetToken.created_at.desc())
+        .limit(1)
+    )
+    token_record = result.scalar_one_or_none()
+
+    if not token_record:
         raise HTTPException(400, "No reset code found. Request a new one.")
-    if datetime.now(timezone.utc) > record["expires_at"]:
-        _otp_store.pop(email, None)
-        raise HTTPException(400, "Code has expired. Request a new one.")
-    if record["otp"] != body.otp.strip():
+    if token_record.token != body.otp.strip():
         raise HTTPException(400, "Invalid code.")
+
     return {"message": "Code verified. Proceed to set new password."}
 
 
@@ -376,15 +400,22 @@ async def reset_password(
     body: ResetPasswordIn,
     db: AsyncSession = Depends(get_db),
 ):
-    email  = body.email.lower().strip()
-    record = _otp_store.get(email)
+    email = body.email.lower().strip()
+    result = await db.execute(
+        select(PasswordResetToken)
+        .where(
+            PasswordResetToken.email == email,
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > datetime.now(timezone.utc),
+        )
+        .order_by(PasswordResetToken.created_at.desc())
+        .limit(1)
+    )
+    token_record = result.scalar_one_or_none()
 
-    if not record:
+    if not token_record:
         raise HTTPException(400, "No reset code found. Request a new one.")
-    if datetime.now(timezone.utc) > record["expires_at"]:
-        _otp_store.pop(email, None)
-        raise HTTPException(400, "Code has expired. Request a new one.")
-    if record["otp"] != body.otp.strip():
+    if token_record.token != body.otp.strip():
         raise HTTPException(400, "Invalid code.")
     if len(body.new_password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters.")
@@ -395,6 +426,6 @@ async def reset_password(
         raise HTTPException(404, "User not found.")
 
     user.password_hash = hash_password(body.new_password)
+    token_record.used = True
     await db.commit()
-    _otp_store.pop(email, None)   # consumed — single use
     return {"message": "Password reset successfully. You can now log in."}

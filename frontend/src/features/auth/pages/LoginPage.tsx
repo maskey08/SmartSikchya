@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { env } from "@/config/env";
-import { PublicNavbar } from "@/components/PublicNavbar";
+import PublicNavbar from "@/features/auth/component/PublicNavbar";
 import { api } from "@/lib/axios";
 import { cn } from "@/lib/cn";
 

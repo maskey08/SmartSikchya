@@ -23,6 +23,7 @@ class User(Base):
     xp:       Mapped["UserXP | None"]         = relationship("UserXP", back_populates="user", uselist=False, lazy="selectin")
     sessions: Mapped[list["PracticeSession"]] = relationship("PracticeSession", back_populates="user", lazy="select")
     progress: Mapped[list["UserProgress"]]    = relationship("UserProgress", back_populates="user", lazy="select")
+    reset_tokens: Mapped[list["PasswordResetToken"]] = relationship("PasswordResetToken", back_populates="user", lazy="select")
 
 
 class UserXP(Base):
