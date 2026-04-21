@@ -224,14 +224,18 @@ export default function SignupPage() {
                   <span className="text-sm text-text-muted">
                     I agree to the{" "}
                     <a
-                      href="#"
+                      href="/legal/terms.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="font-medium text-primary hover:underline"
                     >
                       Terms of Service
                     </a>{" "}
                     and{" "}
                     <a
-                      href="#"
+                      href="/legal/privacy.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="font-medium text-primary hover:underline"
                     >
                       Privacy Policy

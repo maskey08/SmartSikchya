@@ -244,13 +244,17 @@ export default function LandingPage() {
           </p>
           <div className="flex gap-6">
             <a
-              href="#"
+              href="/legal/privacy.html"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-xs text-text-muted hover:text-primary transition-colors"
             >
               Privacy
             </a>
             <a
-              href="#"
+              href="/legal/terms.html"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-xs text-text-muted hover:text-primary transition-colors"
             >
               Terms
