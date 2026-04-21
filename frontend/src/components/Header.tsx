@@ -49,22 +49,22 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
 
         {/* Avatar → /settings */}
         <Link to="/settings" className="group flex items-center gap-3">
-          {user?.avatarUrl ? (
+          {user?.avatar_url ? (
             <img
-              src={user.avatarUrl}
-              alt={user.fullName}
+              src={user.avatar_url}
+              alt={user.full_name ?? "User"}
               className="h-10 w-10 rounded-full border-2 border-surface object-cover shadow-sm"
             />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
               <span className="text-sm font-bold">
-                {user?.fullName?.charAt(0).toUpperCase() ?? "U"}
+                {user?.full_name?.charAt(0).toUpperCase() ?? "U"}
               </span>
             </div>
           )}
           <div className="hidden flex-col lg:flex">
             <span className="text-sm font-bold text-text-main group-hover:text-primary">
-              {user?.fullName ?? "User"}
+              {user?.full_name ?? "User"}
             </span>
             <span className="text-xs text-text-muted">Student</span>
           </div>
